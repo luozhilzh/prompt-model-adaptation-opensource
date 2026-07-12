@@ -35,6 +35,10 @@ prompt-model-adaptation-opensource/
 ├── b_tier_test/                           # B 档实测产物（候选提示词 v1/v2，供复现）
 │   ├── candidate_v1.md                    #   第 1 轮候选：用户原始「AI Prompt 教练」提示词
 │   └── candidate_v2.md                    #   第 2 轮候选：优化器修订版
+├── scripts/                               # B 档外部 API 闭环脚手架（本地跑，需 key）
+│   ├── run_loop.py                        #   主循环：执行 → 评分 → 优化
+│   ├── .env.example                       #   API 配置模板
+│   └── README.md                          #   运行说明
 └── assets/                                # 文档配图（PNG，GitHub/Gitee 通用渲染）
     ├── style-principle-method.svg         #   [源文件] 生命周期图（中文 SVG）
     ├── style-principle-method.png         #   生命周期图（中文 PNG，README 引用此）
@@ -211,6 +215,7 @@ Codex 与多数 coding agent 会自动加载仓库根目录的 `AGENTS.md` 作�
 - **验收**：脚本一键跑完，输出「每轮分数曲线 + 最优提示词 + 改动日志」。
 - **已在 WorkBuddy 内实测（无需 API key）**：见 `references/b-tier-test-record.md`——用 **WorkBuddy 子 Agent 当执行器**跑通闭环，通过率 **1/4 → 4/4**，完整记录各用例输出、评分、优化器改动日志，并列出 7 条踩坑（同模型自评偏差、子 Agent 隔离不彻底、多轮需拼接、澄清门过触发、成本、非确定性、防过拟合未验）。复现步骤见 `references/b_tier_harness.md`（含子 Agent 指令模板 + 规则层 Python 评分片段）。候选原文在 `b_tier_test/candidate_v1.md`（v1）与 `candidate_v2.md`（v2）。
 - **诚实边界**：此内测的执行器 / 评分器 / 优化器同属 WorkBuddy 模型家族，分数**仅可纵向比（v1→v2）**，非跨模型基准；要消自评偏差需上 C 档独立裁判。
+- **外部 API 脚手架已提供**：见仓库根 `scripts/run_loop.py` + `scripts/README.md`——真实调用目标模型跑闭环（需本地 API key，OpenAI 兼容）。与 WorkBuddy 内测共用 `eval-spec` / 优化器逻辑，仅把「子 Agent 执行器」替换为 `call_model()`；填 `JUDGE_MODEL` 即升级为 C 档独立裁判。
 
 ### 阶段 C：双模型（独立裁判）
 
@@ -236,7 +241,7 @@ Codex 与多数 coding agent 会自动加载仓库根目录的 `AGENTS.md` 作�
 2. **防过拟合**：每阶都留一份 unseen 测试集，不能只针对已知 4 组优化。
 3. **评分对齐真实目标**：维度必须映射到「真实表现」，不能只盯格式是否好看。
 
-> 诚实边界：本仓库提供 A 档完整设计（`eval-spec` / `optimizer-meta-prompt` / SKILL 第 5 步），以及 **B 档在 WorkBuddy 内的实测记录与复现 SOP**（`b-tier-test-record.md` / `b_tier_harness.md`，用子 Agent 当执行器、无需 API key）。但 B/C/D 的「对特定外部模型真实跑测试」脚本仍需要你在本地用 API key 执行——仓库可逐步补充 `scripts/run_loop.py` 等工件。
+> 诚实边界：本仓库提供 A 档完整设计（`eval-spec` / `optimizer-meta-prompt` / SKILL 第 5 步），以及 **B 档的双重实现**——① WorkBuddy 内实测记录与复现 SOP（`b-tier-test-record.md` / `b_tier_harness.md`，子 Agent 当执行器、无需 key）；② 真·外部 API 脚手架 `scripts/run_loop.py`（本地填 key 运行）。C 档（独立裁判）、D 档（自适应调参）仍待补充。
 
 ---
 
