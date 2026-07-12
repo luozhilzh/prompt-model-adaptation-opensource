@@ -13,7 +13,7 @@
 | 评分器·规则层 | 主模型按 `eval-spec.md` 的 rule 维度做结构/正则判定（是否反问、有无成品代码块、有无免责串词） |
 | 评分器·语义层 | 主模型对 `shows_gap_diagnosis` / `marks_changes` 打 0–1 分 |
 | 优化器 | 主模型用 `optimizer-meta-prompt.md` 模板，吃「候选 + EVAL_REPORT」吐改进版 |
-| 候选文件 | `../../b_tier_test/candidate_v1.md`（原始）、`../../b_tier_test/candidate_v2.md`（优化后） |
+| 候选文件 | `../../tier_test_candidates/candidate_v1.md`（原始）、`../../tier_test_candidates/candidate_v2.md`（优化后） |
 | 轮次 | 2 轮（达到 4/4 即停，未到上限） |
 
 **为什么能在 WorkBuddy 内跑**：B 档闭环只「执行器」依赖外部 API；WorkBuddy 沙箱无网络/无 key，但子 Agent 本身是真实模型调用，故用它替代外部 API 即可跑通整条闭环。
@@ -24,7 +24,7 @@
 
 ### 子 Agent 指令模板（4 例共用）
 ```
-读取 ../../b_tier_test/candidate_v1.md 作为角色设定，
+读取 ../../tier_test_candidates/candidate_v1.md 作为角色设定，
 仅针对【用户输入】回复，不跳出角色、不声明在测试、不附加元评论。
 ```
 
@@ -70,7 +70,7 @@ case_4 定稿终止   : ❌ no_termination（弱）
 - [`no_termination`] 原问题：定稿后仍追问 → 改法：Workflow 第 4 步明确「用户说定稿即输出最终版+提示可复制+停止」 → 预期 case_4 通过
 - [保持] case_3 已通过，未改角色隔离逻辑
 
-完整改进版见 `../../b_tier_test/candidate_v2.md`。
+完整改进版见 `../../tier_test_candidates/candidate_v2.md`。
 
 ---
 
@@ -131,4 +131,4 @@ R2     4/4      （无）
 
 - 想复现：见同目录 `b_tier_harness.md`（子 Agent 指令模板 + 评分片段 + 循环步骤）。
 - 想换真·外部模型：在本地跑 B 档 `run_loop.py`（需 API key），把子 Agent 换成 `call_model()`；本记录的方法论与坑同样适用。
-- 候选原文：`../../b_tier_test/candidate_v1.md`、`./candidate_v2.md`（注：实际在 `../../b_tier_test/`）。
+- 候选原文：`../../tier_test_candidates/candidate_v1.md`、`./candidate_v2.md`（注：实际在 `../../tier_test_candidates/`）。

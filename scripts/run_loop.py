@@ -18,18 +18,18 @@ run_loop.py — B/C/D 档自优化闭环脚手架（真实外部 API）
 
 运行：
     # B 档（自裁判）：只填 MODEL，裁判/优化器同模型
-    python run_loop.py --candidate ../b_tier_test/candidate_v1.md --rounds 5
+    python run_loop.py --candidate ../tier_test_candidates/candidate_v1.md --rounds 5
 
     # C 档（双模型/独立裁判）：--judge-model 填不同于 MODEL 的模型
     #   执行器 = MODEL（目标模型，测提示词真实表现）
     #   裁判 + 优化器 = JUDGE_MODEL（独立模型，消除自评宽松）
-    python run_loop.py --candidate ../b_tier_test/candidate_v1.md \
+    python run_loop.py --candidate ../tier_test_candidates/candidate_v1.md \
         --judge-model gpt-4o --rounds 5
 
     # D 档（自适应·失败类型驱动定向改法 + 检查表自填）：在 C 档基础上加 --d-mode
     #   自动把失败维度归类为 过长/出戏/否定失效/格式崩/语感乱，并注入对应定向改法给优化器，
     #   跑完自动把检查表"实际"列填实到 output/checklist_auto.md（可用 --checklist 改路径）
-    python run_loop.py --candidate ../b_tier_test/candidate_v1.md \
+    python run_loop.py --candidate ../tier_test_candidates/candidate_v1.md \
         --judge-model gpt-4o --d-mode --rounds 5
 
 与 WorkBuddy 内测的关系：

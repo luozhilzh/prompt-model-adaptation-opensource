@@ -25,18 +25,19 @@ prompt-model-adaptation-opensource/
 │       ├── eval-spec.md                  #   4 组回归用例的机器可读评测规范（A→D 闭环用）
 │       ├── optimizer-meta-prompt.md      #   提示词优化器元提示（自优化闭环驱动核心）
 │       ├── demo-a-tier.md                #   A 档自评审实跑演示（0/4 → 4/4 记录）
-│       ├── b-tier-test-record.md         #   WorkBuddy 内 B 档实测记录（1/4→4/4）+ 踩坑
-│       ├── b_tier_harness.md             #   WorkBuddy 内复现 B 档闭环的 SOP
-│       ├── c_tier-test-record.md         #   WorkBuddy 内 C 档实测记录（3/4→3/4→4/4，独立 blind 裁判）+ 诚实边界
-│       ├── c_tier_harness.md             #   WorkBuddy 内复现 C 档闭环的 SOP（独立裁判模板）
-│       ├── d_tier-test-record.md         #   WorkBuddy 内 D 档实测记录（2/4→3/4→4/4，失败类型驱动+检查表自填）+ 诚实边界
-│       ├── d_tier_harness.md              #   WorkBuddy 内复现 D 档闭环的 SOP（分类器+定向改法+检查表自填）
+│       ├── tier-tests/                   #   各档位 WorkBuddy 内实测产物（记录 + 复现 SOP）
+│       │   ├── b_tier_test_record.md     #   B 档实测记录（1/4→4/4）+ 踩坑
+│       │   ├── b_tier_harness.md         #   B 档复现 SOP
+│       │   ├── c_tier_test_record.md     #   C 档实测记录（3/4→3/4→4/4，独立 blind 裁判）+ 诚实边界
+│       │   ├── c_tier_harness.md         #   C 档复现 SOP（独立裁判模板）
+│       │   ├── d_tier_test_record.md     #   D 档实测记录（2/4→3/4→4/4，失败类型驱动+检查表自填）+ 诚实边界
+│       │   └── d_tier_harness.md         #   D 档复现 SOP（分类器+定向改法+检查表自填）
 │       └── 模型适配横向对比.md           #   多模型适配差异横向对比表
 ├── formats/                               # 跨工具格式转换（各自独立可用）
 │   ├── cursor-prompt-model-adaptation.mdc   # Cursor Rule（.mdc）
 │   ├── claude-code-prompt-model-adaptation.md  # Claude Code 命令
 │   └── codex-AGENTS.md                     # Codex / Agents 指引（AGENTS.md 风格）
-├── b_tier_test/                           # B/C/D 档实测产物（候选提示词 v1/v2/v3，供复现）
+├── tier_test_candidates/                  # B/C/D 档实测产物（候选提示词 v1/v2/v3，供复现）
 │   ├── candidate_v1.md                    #   第 1 轮候选：用户原始「AI Prompt 教练」提示词
 │   ├── candidate_v2.md                    #   B 档第 2 轮候选：优化器修订版
 │   ├── candidate_v2_c.md                  #   C 档第 2 轮候选（澄清门，过触发）
@@ -221,7 +222,7 @@ Codex 与多数 coding agent 会自动加载仓库根目录的 `AGENTS.md` 作�
 - **构建**：`scripts/run_loop.py` + 评分器（规则层正则/结构检查 + LLM-judge 语义评分 0–1）。
 - **做法**：脚本读 eval-spec，对候选提示词**真实调用目标模型 API** 拿输出 → 评分 → 报告喂回 A 档优化器 → 生成下一版；保留最高分版本，循环 3–5 轮自动停止。
 - **验收**：脚本一键跑完，输出「每轮分数曲线 + 最优提示词 + 改动日志」。
-- **已在 WorkBuddy 内实测（无需 API key）**：见 `references/b-tier-test-record.md`——用 **WorkBuddy 子 Agent 当执行器**跑通闭环，通过率 **1/4 → 4/4**，完整记录各用例输出、评分、优化器改动日志，并列出 7 条踩坑（同模型自评偏差、子 Agent 隔离不彻底、多轮需拼接、澄清门过触发、成本、非确定性、防过拟合未验）。复现步骤见 `references/b_tier_harness.md`（含子 Agent 指令模板 + 规则层 Python 评分片段）。候选原文在 `b_tier_test/candidate_v1.md`（v1）与 `candidate_v2.md`（v2）。
+- **已在 WorkBuddy 内实测（无需 API key）**：见 `references/tier-tests/b_tier_test_record.md`——用 **WorkBuddy 子 Agent 当执行器**跑通闭环，通过率 **1/4 → 4/4**，完整记录各用例输出、评分、优化器改动日志，并列出 7 条踩坑（同模型自评偏差、子 Agent 隔离不彻底、多轮需拼接、澄清门过触发、成本、非确定性、防过拟合未验）。复现步骤见 `references/tier-tests/b_tier_harness.md`（含子 Agent 指令模板 + 规则层 Python 评分片段）。候选原文在 `tier_test_candidates/candidate_v1.md`（v1）与 `candidate_v2.md`（v2）。
 - **诚实边界**：此内测的执行器 / 评分器 / 优化器同属 WorkBuddy 模型家族，分数**仅可纵向比（v1→v2）**，非跨模型基准；要消自评偏差需上 C 档独立裁判。
 - **外部 API 脚手架已提供**：见仓库根 `scripts/run_loop.py` + `scripts/README.md`——真实调用目标模型跑闭环（需本地 API key，OpenAI 兼容）。与 WorkBuddy 内测共用 `eval-spec` / 优化器逻辑，仅把「子 Agent 执行器」替换为 `call_model()`；填 `JUDGE_MODEL` 即升级为 C 档独立裁判。
 
@@ -230,7 +231,7 @@ Codex 与多数 coding agent 会自动加载仓库根目录的 `AGENTS.md` 作�
 - **前置**：B 跑通。
 - **构建**：`scripts/run_loop.py` 的 `JUDGE_MODEL` / `--judge-model`（裁判 + 优化器走独立模型，执行器留目标模型）；WorkBuddy 内测用「独立 blind 裁判子 Agent」模拟角色隔离。
 - **做法**：把评分裁判（及优化器）换成另一个（或更强）模型，生成与裁判分离。
-- **已在 WorkBuddy 内实测（无需 API key）**：见 `references/c_tier-test-record.md`——用**独立 blind 裁判子 Agent**（只评输出、不读候选）跑通闭环，通过率 **3/4 → 3/4 → 4/4**（中途修掉澄清门过触发回归）；复现见 `references/c_tier_harness.md`。候选原文在 `b_tier_test/candidate_v1.md`、`candidate_v2_c.md`、`candidate_v3_c.md`。
+- **已在 WorkBuddy 内实测（无需 API key）**：见 `references/tier-tests/c_tier_test_record.md`——用**独立 blind 裁判子 Agent**（只评输出、不读候选）跑通闭环，通过率 **3/4 → 3/4 → 4/4**（中途修掉澄清门过触发回归）；复现见 `references/tier-tests/c_tier_harness.md`。候选原文在 `tier_test_candidates/candidate_v1.md`、`candidate_v2_c.md`、`candidate_v3_c.md`。
 - **诚实边界（重要）**：WorkBuddy 内执行器 / 裁判 / 优化器同属一个模型家族，"独立"只是**结构独立（上下文隔离）**，**不能证实"独立裁判更严/更稳"**——内测中 blind 裁判与自裁判在所有被测样本上分数完全一致。该性质只对**真·双模型**（外部 `run_loop.py` 填跨家族 `JUDGE_MODEL`）成立。
 - **外部真·双模型已提供**：`scripts/run_loop.py` 传 `--judge-model <不同模型>` 即进入 C 档——执行器 = `MODEL`、裁判 + 优化器 = `JUDGE_MODEL`，详见 `scripts/README.md` 第 7 节。
 - **验收（真·双模型）**：同一候选，跨家族独立裁判的分数比 B 档（自裁判）更严格、波动更小——证明去掉了自评宽松偏差。
@@ -244,7 +245,7 @@ Codex 与多数 coding agent 会自动加载仓库根目录的 `AGENTS.md` 作�
   2. 评分器除打通过/失败，还输出**失败类型标签**：`过长 / 出戏 / 否定失效 / 格式崩 / 语感乱`
   3. 优化器读失败标签，从「定向改法速查」里**自动选对应手法加强**（如检测到`过长` → 收紧字数上限 + 截断示例）
   4. 循环 N 轮后，固化该模型的 `{适配版提示词 + 实际生效约束集}` 并自动填实检查表的「实际」列
-- **已在 WorkBuddy 内实测（无需 API key）**：见 `references/d_tier-test-record.md`——用**失败类型分类 → 定向改法 → 检查表自填**这条自动化链跑通闭环，通过率 **2/4 → 3/4 -> 4/4**（中途修掉澄清门过触发回归）；复现见 `references/d_tier_harness.md`。候选原文在 `b_tier_test/candidate_v1.md`、`candidate_v2_d.md`、`candidate_v3_d.md`。
+- **已在 WorkBuddy 内实测（无需 API key）**：见 `references/tier-tests/d_tier_test_record.md`——用**失败类型分类 → 定向改法 → 检查表自填**这条自动化链跑通闭环，通过率 **2/4 → 3/4 -> 4/4**（中途修掉澄清门过触发回归）；复现见 `references/tier-tests/d_tier_harness.md`。候选原文在 `tier_test_candidates/candidate_v1.md`、`candidate_v2_d.md`、`candidate_v3_d.md`。
 - **诚实边界（重要）**：WorkBuddy 内执行器 / 裁判 / 优化器同属一个模型家族，**无真实跨模型漂移数据**——分类器只在已知 4 组上贴失败类型标签，检查表"实际"列是**回填结论**而非 D 档**自主发现**新约束；且分类器只认"输出表现"，认不出"门控逻辑配置错误"（如澄清门过触发会被误归"格式崩"）。因此本内测只能证明**自动化链可跑通**，不能证实"自适应替代人工适配"。
 - **外部真·D 档已提供**：`scripts/run_loop.py` 加 `--d-mode`（建议配 `--judge-model` 跨家族）即进入 D 档——自动分类失败类型、把定向改法注入优化器、跑完自动填实 `output/checklist_auto.md`，详见 `scripts/README.md` 第 8 节。
 - **验收（真·自适应）**：拿一个从未手调过的模型 + 足量 unseen 用例集，D 档自动产出质量接近人工适配版的提示词，且检查表「实际」列被自动填实——**人工适配工作被替代**。仅针对已知 4 组优化会过拟合，那不是真自适应。
@@ -256,9 +257,9 @@ Codex 与多数 coding agent 会自动加载仓库根目录的 `AGENTS.md` 作�
 3. **评分对齐真实目标**：维度必须映射到「真实表现」，不能只盯格式是否好看。
 
 > 诚实边界：本仓库提供 A 档完整设计（`eval-spec` / `optimizer-meta-prompt` / SKILL 第 5 步），**A → D 四档的双重实现现已全部就绪**——
-> - **B 档**：① WorkBuddy 内实测与复现 SOP（`b-tier-test-record.md` / `b_tier_harness.md`，子 Agent 当执行器、无需 key）；② 真·外部 API 脚手架 `scripts/run_loop.py`（自裁判模式）。
-> - **C 档**：① WorkBuddy 内实测与复现 SOP（`c_tier-test-record.md` / `c_tier_harness.md`，独立 blind 裁判、无需 key，仅证方法论）；② 真·外部 API 脚手架 `scripts/run_loop.py --judge-model`（跨家族独立裁判，真·双模型）。
-> - **D 档**：① WorkBuddy 内实测与复现 SOP（`d_tier-test-record.md` / `d_tier_harness.md`，失败类型分类+定向改法+检查表自填、无需 key，仅证方法论）；② 真·外部 API 脚手架 `scripts/run_loop.py --d-mode`（失败类型驱动自适应+检查表自填，建议配 `--judge-model`）。
+> - **B 档**：① WorkBuddy 内实测与复现 SOP（`references/tier-tests/b_tier_test_record.md` / `references/tier-tests/b_tier_harness.md`，子 Agent 当执行器、无需 key）；② 真·外部 API 脚手架 `scripts/run_loop.py`（自裁判模式）。
+> - **C 档**：① WorkBuddy 内实测与复现 SOP（`references/tier-tests/c_tier_test_record.md` / `references/tier-tests/c_tier_harness.md`，独立 blind 裁判、无需 key，仅证方法论）；② 真·外部 API 脚手架 `scripts/run_loop.py --judge-model`（跨家族独立裁判，真·双模型）。
+> - **D 档**：① WorkBuddy 内实测与复现 SOP（`references/tier-tests/d_tier_test_record.md` / `references/tier-tests/d_tier_harness.md`，失败类型分类+定向改法+检查表自填、无需 key，仅证方法论）；② 真·外部 API 脚手架 `scripts/run_loop.py --d-mode`（失败类型驱动自适应+检查表自填，建议配 `--judge-model`）。
 > 诚实提醒：WorkBuddy 内测的"独立"是**结构独立**，不能证实偏差消除；"自适应"是**回填已知结论**，不能证实替代人工——这两类性质只对**跨家族 `JUDGE_MODEL` + 足量 unseen 集**（外部真·C/D 档）成立。
 
 ---

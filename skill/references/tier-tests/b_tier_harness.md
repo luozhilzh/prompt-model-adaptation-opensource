@@ -2,7 +2,7 @@
 
 > 本文件让你在 **WorkBuddy 内**复现 B 档自优化闭环，**无需 API key、无需联网**。
 > 核心技巧：用 WorkBuddy 的 **Agent 工具派生的子 Agent** 充当「目标模型执行器」，替代标准 B 档里的外部 API 调用。
-> 配套文件：`eval-spec.md`（用例）、`optimizer-meta-prompt.md`（优化器）、`b-tier-test-record.md`（真实测试依据与坑）。
+> 配套文件：`eval-spec.md`（用例）、`optimizer-meta-prompt.md`（优化器）、`b_tier_test_record.md`（真实测试依据与坑）。
 > 诚实标注：执行器/评分器/优化器同属 WorkBuddy 模型家族，分数仅可纵向比（v1→v2），要消自评偏差需上 C 档独立裁判（详见 README 后续计划）。
 
 ---
@@ -22,7 +22,7 @@
 ## 2. 前置准备
 
 1. 确认 `eval-spec.md` / `optimizer-meta-prompt.md` 在同目录。
-2. 把**待优化提示词**存成 `candidate_v1.md`（任意路径，记下绝对路径）。例如用本仓库 `../../b_tier_test/candidate_v1.md`。
+2. 把**待优化提示词**存成 `candidate_v1.md`（任意路径，记下绝对路径）。例如用本仓库 `../../tier_test_candidates/candidate_v1.md`。
 3. 在对话里让我（主模型）按下面步骤跑；或你自己照模板派发子 Agent。
 
 ---
@@ -111,7 +111,7 @@ for 轮次 in 1..N:
 
 ---
 
-## 6. 复现时必看的坑（详见 `b-tier-test-record.md` 第 5 节）
+## 6. 复现时必看的坑（详见 `b_tier_test_record.md` 第 5 节）
 
 1. 同模型自评偏差：分数只纵向比，非绝对基准。
 2. 子 Agent 隔离不彻底：常自发加 emoji/寒暄，指令里加「禁用 emoji」。

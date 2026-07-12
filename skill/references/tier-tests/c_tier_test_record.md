@@ -1,6 +1,6 @@
 # C 档自优化实测记录（WorkBuddy 内）
 
-> 本文件是「在 WorkBuddy 内用**独立 blind 裁判**跑 C 档自优化闭环」的**真实测试依据**，与 `eval-spec.md` / `optimizer-meta-prompt.md` / `b-tier-test-record.md` / `b_tier_harness.md` 配套。
+> 本文件是「在 WorkBuddy 内用**独立 blind 裁判**跑 C 档自优化闭环」的**真实测试依据**，与 `eval-spec.md` / `optimizer-meta-prompt.md` / `b_tier_test_record.md` / `b_tier_harness.md` 配套。
 > 诚实标注（最重要）：WorkBuddy 沙箱里**执行器 / 裁判 / 优化器都跑在同一个模型家族上**，无法真正换一家模型。因此本测试验证的是 C 档的**方法论**（裁判与被测角色隔离、盲评、可复现），**不能证实"独立裁判更严/更稳"这一跨模型偏差消除性质**——那需要 `scripts/run_loop.py` 填真实 `JUDGE_MODEL`（跨服务商）才能成立。详见第 8 节。
 
 ---
@@ -13,7 +13,7 @@
 | 裁判·规则层 | 主模型按 `eval-spec.md` 的 rule 维度做结构/正则判定。 |
 | 裁判·语义层（**C 档核心**） | **独立的 blind 子 Agent**：只拿到「执行器输出 + 该维度的 check 描述 + 预期」，**看不到候选提示词、不知道是谁生成的**，按统一 rubric 打 0–1 分。与 B 档"主模型顺手自评"的区别在于**上下文隔离**。 |
 | 优化器 | 子 Agent，用 `optimizer-meta-prompt.md` 模板，吃「候选 + EVAL_REPORT」吐改进版。 |
-| 候选文件 | `../../b_tier_test/candidate_v1.md`（原始）、`candidate_v2_c.md`、`candidate_v3_c.md`（两轮优化后） |
+| 候选文件 | `../../tier_test_candidates/candidate_v1.md`（原始）、`candidate_v2_c.md`、`candidate_v3_c.md`（两轮优化后） |
 | 轮次 | 3 轮（R1=3/4，R2=3/4 因过触发回归，R3=4/4 达标） |
 | 对比实验 | 同一份输出，分别用「C 模式 blind 裁判」与「B 模式自裁判（带候选上下文，模拟同模型自评）」打分，比分数差。 |
 
@@ -98,7 +98,7 @@ case_4 定稿终止   : ✅
 - [`no_premature_generation`+`missing_clarity_gate`] 原问题：信息稀疏时直接生成 → 改法：Workflow 第 2 步加【澄清门】，缺失场景/受众/卖点任一项先问 ≤3 问，严禁先生成 → 预期 case_1 通过
 - [`终止条件`] 原问题："询问修改意见直到满意"易无限追问 → 改法：明确"用户说定稿即停止" → 预期 case_4 保持通过
 
-完整改进版见 `../../b_tier_test/candidate_v2_c.md`。
+完整改进版见 `../../tier_test_candidates/candidate_v2_c.md`。
 
 ---
 
@@ -131,7 +131,7 @@ case_4 定稿终止   : ✅
 **改动日志**
 - [`clarification_over_trigger`] 原问题：澄清门只按"三要素缺失"判断，误把"用户给的初版提示词"当空白需求 → 改法：澄清门显式区分两类输入——(a) 空白需求类（仅模糊需求、无内容）→ 触发反问；(b) 待优化初版类（明说"这是我的初版/提示词"或贴代码块）→ **跳过澄清门，直接进入缺口诊断+优化版+改动点** → 预期 case_2 通过且 case_1/3/4 不受影响
 
-完整改进版见 `../../b_tier_test/candidate_v3_c.md`。
+完整改进版见 `../../tier_test_candidates/candidate_v3_c.md`。
 
 ---
 
@@ -191,4 +191,4 @@ R3     4/4      （无）
 
 - 想复现：见同目录 `c_tier_harness.md`（独立 blind 裁判子 Agent 模板 + 规则评分片段 + 循环步骤）。
 - 想跑**真·双模型 C 档**（跨家族独立裁判，验证偏差消除）：在本地跑 `scripts/run_loop.py`，填 `JUDGE_MODEL` 为不同于 `MODEL` 的服务商模型（或用 `--judge-model` 参数）；裁判 + 优化器走 `JUDGE_MODEL`，执行器留 `MODEL`。
-- 候选原文：`../../b_tier_test/candidate_v1.md`、`./candidate_v2_c.md`、`./candidate_v3_c.md`。
+- 候选原文：`../../tier_test_candidates/candidate_v1.md`、`./candidate_v2_c.md`、`./candidate_v3_c.md`。

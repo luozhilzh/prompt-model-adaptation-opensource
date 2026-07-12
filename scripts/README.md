@@ -1,6 +1,6 @@
 # B/C/D 档自优化闭环脚手架（真实外部 API）
 
-本目录提供 `run_loop.py`：对候选提示词**真实调用目标模型**，按 `eval-spec` 评分，把评测报告喂给优化器产出下一版，循环直到 4/4 通过或轮次上限。与 `skill/references/b-tier-test-record.md` / `c_tier-test-record.md` / `d_tier-test-record.md` 的 WorkBuddy 内测共用同一套评测/优化逻辑，**仅把「子 Agent 执行器」换成真实 `call_model()`**。
+本目录提供 `run_loop.py`：对候选提示词**真实调用目标模型**，按 `eval-spec` 评分，把评测报告喂给优化器产出下一版，循环直到 4/4 通过或轮次上限。与 `skill/references/tier-tests/b_tier_test_record.md` / `references/tier-tests/c_tier_test_record.md` / `references/tier-tests/d_tier_test_record.md` 的 WorkBuddy 内测共用同一套评测/优化逻辑，**仅把「子 Agent 执行器」换成真实 `call_model()`**。
 
 > **档位说明**：不填 `JUDGE_MODEL` 即 **B 档（自裁判）**——执行器 / 裁判 / 优化器同模型；填了 `JUDGE_MODEL`（或传 `--judge-model`，且与 `MODEL` 不同）即 **C 档（双模型 / 独立裁判）**——执行器留 `MODEL` 测真实表现，裁判 + 优化器走独立模型，消除自评宽松；加 `--d-mode` 即 **D 档（自适应）**——在 C 档之上自动分类失败类型、注入定向改法、跑完自填检查表。详见第 7、8 节。
 
@@ -26,14 +26,14 @@ cp .env.example .env
 
 ```bash
 # B 档（自裁判）：只填 MODEL，裁判/优化器同模型
-python scripts/run_loop.py --candidate b_tier_test/candidate_v1.md --rounds 5
+python scripts/run_loop.py --candidate tier_test_candidates/candidate_v1.md --rounds 5
 
 # 指定自己的用例 JSON（结构同 run_loop.py 里的 DEFAULT_CASES）
 python scripts/run_loop.py --candidate my_prompt.md --cases my_cases.json --rounds 3
 
 # C 档（双模型/独立裁判）：--judge-model 填不同于 MODEL 的模型
 #   执行器=目标模型(如 DeepSeek)，裁判+优化器=独立模型(如 gpt-4o)
-python scripts/run_loop.py --candidate b_tier_test/candidate_v1.md \
+python scripts/run_loop.py --candidate tier_test_candidates/candidate_v1.md \
     --judge-model gpt-4o --rounds 5
 ```
 
@@ -90,7 +90,7 @@ C 档是 B 档的升级：**把"裁判 + 优化器"从目标模型拆到独立�
 JUDGE_MODEL=gpt-4o        # 与 MODEL 不同即进入 C 档
 
 # 方式二：命令行参数（覆盖环境变量）
-python scripts/run_loop.py --candidate b_tier_test/candidate_v1.md \
+python scripts/run_loop.py --candidate tier_test_candidates/candidate_v1.md \
     --judge-model gpt-4o --rounds 5
 ```
 
@@ -101,7 +101,7 @@ python scripts/run_loop.py --candidate b_tier_test/candidate_v1.md \
 
 ### 与 WorkBuddy 内测的关系（诚实边界）
 
-- `c_tier-test-record.md` 在 WorkBuddy 内用「blind 裁判子 Agent（不读候选）」模拟 C 档，证明**方法论可跑通**（角色隔离的裁判能正确运行）。
+- `references/tier-tests/c_tier_test_record.md` 在 WorkBuddy 内用「blind 裁判子 Agent（不读候选）」模拟 C 档，证明**方法论可跑通**（角色隔离的裁判能正确运行）。
 - 但 WorkBuddy 内执行器 / 裁判 / 优化器同属一个模型家族，"独立"只是**结构独立**，**无法证实"独立裁判更严/更稳"**。
 - 真正的偏差消除，必须由本脚手架填**跨家族**的 `JUDGE_MODEL`（如执行器 DeepSeek、裁判 GPT/Claude）来成立——这才是 README 里"C 档分数比 B 档更严格、波动更小"所指的真·双模型场景。
 
@@ -113,11 +113,11 @@ D 档 = C 档（独立裁判）之上加一层**自动化适配链**：把评测
 
 ```bash
 # 建议配 --judge-model（独立裁判）一起开，避免自用自评
-python scripts/run_loop.py --candidate b_tier_test/candidate_v1.md \
+python scripts/run_loop.py --candidate tier_test_candidates/candidate_v1.md \
     --judge-model gpt-4o --d-mode --rounds 5
 
 # 指定自动填实的检查表输出路径（默认 output/checklist_auto.md）
-python scripts/run_loop.py --candidate b_tier_test/candidate_v1.md \
+python scripts/run_loop.py --candidate tier_test_candidates/candidate_v1.md \
     --judge-model gpt-4o --d-mode --checklist my_checklist.md --rounds 5
 ```
 
@@ -137,7 +137,7 @@ python scripts/run_loop.py --candidate b_tier_test/candidate_v1.md \
 
 ### 与 WorkBuddy 内测的关系（诚实边界）
 
-- `d_tier-test-record.md` 在 WorkBuddy 内用「失败类型分类 → 定向改法 → 检查表自填」跑通闭环（通过率 2/4 → 3/4 → 4/4）。
+- `references/tier-tests/d_tier_test_record.md` 在 WorkBuddy 内用「失败类型分类 → 定向改法 → 检查表自填」跑通闭环（通过率 2/4 → 3/4 → 4/4）。
 - 但 WorkBuddy 内执行器 / 裁判 / 优化器同家族，且**无真实跨模型漂移数据**——分类器只在已知 4 组上贴标签，检查表是**回填结论**而非 D 档**自主发现**新约束。
 - 要验证"自适应替代人工适配"，必须用本脚手架 `--d-mode` 配**跨家族** `JUDGE_MODEL` + **足量 unseen 用例集**（输入不同、结构同）一起跑：只针对已知 4 组优化会过拟合，那不是真自适应。
 - 已知局限：分类器只认"输出表现"，认不出"门控逻辑配置错误"（如澄清门过触发会被误归"格式崩"），需优化器自行识别修复。

@@ -2,7 +2,7 @@
 
 > 本文件让你在 **WorkBuddy 内**复现 C 档自优化闭环，**无需 API key、无需联网**。
 > 核心技巧：用 WorkBuddy 的 **Agent 工具派生的子 Agent** 充当执行器与优化器；**额外增加一个"独立 blind 裁判"子 Agent** 充当语义层 LLM-judge——它**只看到执行器输出 + 维度 rubric，看不到候选提示词**，以此模拟 C 档"独立裁判"。
-> 配套文件：`eval-spec.md`（用例）、`optimizer-meta-prompt.md`（优化器）、`c_tier-test-record.md`（真实测试依据与诚实边界）。
+> 配套文件：`eval-spec.md`（用例）、`optimizer-meta-prompt.md`（优化器）、`c_tier_test_record.md`（真实测试依据与诚实边界）。
 > 诚实标注：执行器 / 裁判 / 优化器同属 WorkBuddy 模型家族，"独立"是**结构独立（上下文隔离）**非**模型独立**。要消跨家族自评偏差，需外部 `scripts/run_loop.py` 填 `JUDGE_MODEL`（见第 7 节）。
 
 ---
@@ -24,7 +24,7 @@
 ## 2. 前置准备
 
 1. 确认 `eval-spec.md` / `optimizer-meta-prompt.md` 在同目录。
-2. 把待优化提示词存成 `candidate_v1.md`（记下绝对路径），例如本仓库 `../../b_tier_test/candidate_v1.md`。
+2. 把待优化提示词存成 `candidate_v1.md`（记下绝对路径），例如本仓库 `../../tier_test_candidates/candidate_v1.md`。
 3. 在对话里让我（主模型）按下面步骤跑；或你自己照模板派发子 Agent。
 
 ---
@@ -147,7 +147,7 @@ for 轮次 in 1..N:
 
 ```bash
 # 执行器=目标模型(DeepSeek)，裁判+优化器=独立模型(GPT/Claude)
-python scripts/run_loop.py --candidate b_tier_test/candidate_v1.md \
+python scripts/run_loop.py --candidate tier_test_candidates/candidate_v1.md \
     --judge-model gpt-4o --rounds 5
 ```
 

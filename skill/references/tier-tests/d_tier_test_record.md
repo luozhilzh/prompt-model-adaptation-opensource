@@ -1,6 +1,6 @@
 # D 档自优化实测记录（WorkBuddy 内）
 
-> 本文件是「在 WorkBuddy 内用 **D 档（自适应 · 失败类型驱动定向改法 + 检查表自填）** 跑自优化闭环」的**真实测试依据**，与 `eval-spec.md` / `optimizer-meta-prompt.md` / `c_tier-test-record.md` / `d_tier_harness.md` 配套。
+> 本文件是「在 WorkBuddy 内用 **D 档（自适应 · 失败类型驱动定向改法 + 检查表自填）** 跑自优化闭环」的**真实测试依据**，与 `eval-spec.md` / `optimizer-meta-prompt.md` / `c_tier_test_record.md` / `d_tier_harness.md` 配套。
 > 诚实标注（最重要）：WorkBuddy 沙箱里**执行器 / 裁判 / 优化器都跑在同一个模型家族上**，无法真正换一家模型、也无法真正"数据驱动调参"。因此本测试验证的是 D 档的**方法论**（失败类型分类 → 定向改法自动选取 → 检查表"实际"列自动填实这条自动化链能否跑通），**不能证实"自适应调参比人工适配更优"**——那需要外部 `scripts/run_loop.py` 的 `--d-mode`（配真实跨家族 `JUDGE_MODEL` + 足量 unseen 集）才能成立。详见第 9 节。
 
 ---
@@ -15,7 +15,7 @@
 | **D 档核心·失败类型分类器** | 主模型把每条**失败维度**映射为 5 类失败类型之一：`过长 / 出戏 / 否定失效 / 格式崩 / 语感乱`，再按 `regression-and-techniques.md` 的定向改法速查**自动推荐对应手法**（如 `过长` → 限长+截断示例）。 |
 | 优化器（D 模式） | 子 Agent，除吃「候选 + EVAL_REPORT」外，额外吃「失败类型诊断 + 定向改法建议」，优先用对应药方修提示词。 |
 | **检查表自填** | D 档把每轮评测结果**自动写回** `checklist-template.md` 风格的检查表「实际」列与「结果」勾选，产出 `checklist_auto.md`，模拟"人工适配工作被替代"。 |
-| 候选文件 | `../../b_tier_test/candidate_v1.md`（原始）、`candidate_v2_d.md`、`candidate_v3_d.md`（两轮优化后） |
+| 候选文件 | `../../tier_test_candidates/candidate_v1.md`（原始）、`candidate_v2_d.md`、`candidate_v3_d.md`（两轮优化后） |
 | 轮次 | 3 轮（R1=2/4，R2=3/4 因过触发回归，R3=4/4 达标） |
 
 **为什么能在 WorkBuddy 内跑 D 档**：D 档 = C 档（独立裁判）+ 一层"失败类型 → 定向改法"的自动化映射 + 检查表自填。前两者在前两档已验证可跑；新增的分类器本质是一次"规则层 + 语义层"的小映射，子 Agent / 主模型都能完成。
@@ -99,7 +99,7 @@ case_4 定稿终止   : ❌ stops_prompting / not_clean_termination          (�
 - [`no_premature_generation`+`missing_clarity_gate` / 过长] 原问题：信息稀疏时直接生成 → 改法：Workflow 第 2 步加【澄清门】，缺失场景/受众/卖点任一项先问 ≤3 问，严禁先生成 → 预期 case_1 通过
 - [`stops_prompting` / 过长] 原问题：定稿后仍带收尾话术 → 改法：第 5 步加【终止条件】"用户说定稿即停，不得追加延伸话术"；并在 OutputFormat 区加【截断样例】（开场示范 + 限长参考 ≤2 句）落实"限长+截断示例" → 预期 case_4 通过
 
-完整改进版见 `../../b_tier_test/candidate_v2_d.md`。
+完整改进版见 `../../tier_test_candidates/candidate_v2_d.md`。
 
 ---
 
@@ -133,7 +133,7 @@ case_4 定稿终止   : ✅
 **改动日志**
 - [`clarification_over_trigger` / 实为过触发非格式崩] 原问题：澄清门只按"三要素缺失"判断，误把"用户给的初版提示词"当空白需求 → 改法：澄清门显式区分两类输入——(a) 空白需求类（仅模糊需求、无内容）→ 触发反问；(b) **待优化初版类**（明说"这是我的初版/提示词"或贴代码块）→ 跳过澄清门，直接进入缺口诊断+优化版+改动点 → 预期 case_2 通过且 case_1/3/4 不受影响
 
-完整改进版见 `../../b_tier_test/candidate_v3_d.md`。
+完整改进版见 `../../tier_test_candidates/candidate_v3_d.md`。
 
 > 注：此过触发属**结构化误判**，不在 5 类失败类型（过长/出戏/否定失效/格式崩/语感乱）的覆盖范围内——D 档分类器把它归到了"格式崩"是**误归**（见第 9 节诚实边界）。这是 D 档方法论当前的一个已知局限：分类器只认"输出表现"，认不出"门控逻辑配置错误"。
 
@@ -209,4 +209,4 @@ R3     4/4      （无）
 
 - 想复现：见同目录 `d_tier_harness.md`（失败类型分类器模板 + 定向改法速查接入 + 检查表自填步骤）。
 - 想跑**真·D 档（数据驱动自适应）**：本地跑 `scripts/run_loop.py --d-mode`，并建议配 `--judge-model`（跨家族）与一份 unseen 用例集；脚本会自动分类失败类型、推荐定向改法、填实检查表。
-- 候选原文：`../../b_tier_test/candidate_v1.md`、`./candidate_v2_d.md`、`./candidate_v3_d.md`。
+- 候选原文：`../../tier_test_candidates/candidate_v1.md`、`./candidate_v2_d.md`、`./candidate_v3_d.md`。

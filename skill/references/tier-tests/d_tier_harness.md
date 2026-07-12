@@ -5,7 +5,7 @@
 > 1. **失败类型分类器**：把每条失败维度映射到 5 类之一（过长/出戏/否定失效/格式崩/语感乱）；
 > 2. **定向改法自动选取**：按 `regression-and-techniques.md` 速查表，给分类器结果接上对应手法（如 `过长` → 限长+截断示例），喂给优化器；
 > 3. **检查表"实际"列自动填实**：把每轮评测结论写回 `checklist-template.md` 风格检查表，产出 `checklist_auto.md`。
-> 配套文件：`eval-spec.md`（用例）、`optimizer-meta-prompt.md`（优化器）、`regression-and-techniques.md`（定向改法速查）、`checklist-template.md`（检查表模板）、`d_tier-test-record.md`（真实测试依据与诚实边界）。
+> 配套文件：`eval-spec.md`（用例）、`optimizer-meta-prompt.md`（优化器）、`regression-and-techniques.md`（定向改法速查）、`checklist-template.md`（检查表模板）、`d_tier_test_record.md`（真实测试依据与诚实边界）。
 > 诚实标注：执行器 / 裁判 / 优化器同属 WorkBuddy 模型家族，"独立"是**结构独立**非**模型独立**；且 D 档的"数据驱动校准 model-quirks"在 WorkBuddy 内无法真做（无跨模型漂移数据）。要证"自适应替代人工"，需外部 `scripts/run_loop.py --d-mode`（见第 8 节）。
 
 ---
@@ -29,7 +29,7 @@
 ## 2. 前置准备
 
 1. 确认 `eval-spec.md` / `optimizer-meta-prompt.md` / `regression-and-techniques.md` / `checklist-template.md` 在同目录。
-2. 把待优化提示词存成 `candidate_v1.md`（记下绝对路径），例如本仓库 `../../b_tier_test/candidate_v1.md`。
+2. 把待优化提示词存成 `candidate_v1.md`（记下绝对路径），例如本仓库 `../../tier_test_candidates/candidate_v1.md`。
 3. 在对话里让我（主模型）按下面步骤跑；或你自己照模板派发子 Agent。
 
 ---
@@ -154,7 +154,7 @@ for 轮次 in 1..N:
 
 ```bash
 # 执行器=目标模型(DeepSeek)，裁判+优化器=独立模型(GPT/Claude)，并开 D 档自适应
-python scripts/run_loop.py --candidate b_tier_test/candidate_v1.md \
+python scripts/run_loop.py --candidate tier_test_candidates/candidate_v1.md \
     --judge-model gpt-4o --d-mode --rounds 5
 ```
 
