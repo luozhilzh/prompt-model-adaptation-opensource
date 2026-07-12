@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 540" font-family="'PingFang SC','Microsoft YaHei','Hiragino Sans GB',sans-serif">
+  <!-- background -->
+  <rect x="0" y="0" width="680" height="540" fill="#f8fafc"/>
+
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <!-- title -->
+  <text x="340" y="38" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">Self-optimization roadmap: A self-review → D adaptive</text>
+  <text x="340" y="62" text-anchor="middle" font-size="12" fill="#64748b">Each stage is a superset of the previous; do not skip · keep unseen tests to avoid overfitting</text>
+
+  <!-- arrows between steps (ascending staircase) -->
+  <line x1="165" y1="455" x2="200" y2="355" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="345" y1="355" x2="380" y2="255" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="525" y1="255" x2="540" y2="155" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Stage A -->
+  <rect x="20" y="405" width="145" height="100" rx="10" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+  <circle cx="42" cy="427" r="14" fill="#94a3b8"/>
+  <text x="42" y="432" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">A</text>
+  <text x="95" y="430" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">A Self-review</text>
+  <text x="92" y="452" text-anchor="middle" font-size="10.5" fill="#475569">Pure prompt · No API</text>
+  <text x="92" y="472" text-anchor="middle" font-size="10.5" fill="#475569">Add: meta-prompt +</text>
+  <text x="92" y="488" text-anchor="middle" font-size="10.5" fill="#475569">self-review spec</text>
+
+  <!-- Stage B -->
+  <rect x="200" y="305" width="145" height="100" rx="10" fill="#ccfbf1" stroke="#5eead4" stroke-width="1.5"/>
+  <circle cx="222" cy="327" r="14" fill="#5eead4"/>
+  <text x="222" y="332" text-anchor="middle" font-size="13" font-weight="700" fill="#0f766e">B</text>
+  <text x="275" y="330" text-anchor="middle" font-size="14" font-weight="700" fill="#0f766e">B Closed loop</text>
+  <text x="272" y="352" text-anchor="middle" font-size="10.5" fill="#0f766e">Real exec + scoring</text>
+  <text x="272" y="372" text-anchor="middle" font-size="10.5" fill="#0f766e">Add: API calls +</text>
+  <text x="272" y="388" text-anchor="middle" font-size="10.5" fill="#0f766e">auto scorer</text>
+
+  <!-- Stage C -->
+  <rect x="380" y="205" width="145" height="100" rx="10" fill="#99f6e4" stroke="#2dd4bf" stroke-width="1.5"/>
+  <circle cx="402" cy="227" r="14" fill="#2dd4bf"/>
+  <text x="402" y="232" text-anchor="middle" font-size="13" font-weight="700" fill="#134e4a">C</text>
+  <text x="455" y="230" text-anchor="middle" font-size="14" font-weight="700" fill="#134e4a">C Dual-model</text>
+  <text x="452" y="252" text-anchor="middle" font-size="10.5" fill="#134e4a">Independent judge</text>
+  <text x="452" y="272" text-anchor="middle" font-size="10.5" fill="#134e4a">Add: judge model</text>
+  <text x="452" y="288" text-anchor="middle" font-size="10.5" fill="#134e4a">separation</text>
+
+  <!-- Stage D -->
+  <rect x="540" y="105" width="130" height="100" rx="10" fill="#0d9488" stroke="#0f766e" stroke-width="1.5"/>
+  <circle cx="562" cy="127" r="14" fill="#0f766e"/>
+  <text x="562" y="132" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">D</text>
+  <text x="605" y="130" text-anchor="middle" font-size="14" font-weight="700" fill="#ffffff">D Adaptive</text>
+  <text x="605" y="152" text-anchor="middle" font-size="10.5" fill="#ccfbf1">Data-driven tuning</text>
+  <text x="605" y="172" text-anchor="middle" font-size="10.5" fill="#ccfbf1">Add: quirk dynamic</text>
+  <text x="605" y="188" text-anchor="middle" font-size="10.5" fill="#ccfbf1">calibration</text>
+
+  <!-- endpoint label -->
+  <text x="605" y="232" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0d9488">↑ Endpoint: human adaptation replaced</text>
+
+  <!-- baseline -->
+  <line x1="20" y1="515" x2="660" y2="515" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="340" y="535" text-anchor="middle" font-size="11" fill="#94a3b8">Scoring dimensions must map to real goals, not just whether the format looks pretty</text>
+</svg>

@@ -13,7 +13,8 @@
 ```
 prompt-model-adaptation-opensource/
 ├── LICENSE                                # MIT 许可证文本
-├── README.md                              # 本文件：使用说明
+├── README.md                              # 本文件：中文使用说明
+├── README_en.md                           # 英文使用说明
 ├── SOP.md                                 # 纯文本 SOP（合并 4 文件、去 frontmatter），可直贴任意 AI 工具
 ├── skill/                                 # WorkBuddy 原生 skill（带 frontmatter，给 WorkBuddy 用户）
 │   ├── SKILL.md
@@ -22,10 +23,15 @@ prompt-model-adaptation-opensource/
 │       ├── regression-and-techniques.md  #   4 组回归用例 + 定向改法速查
 │       ├── model-quirks.md               #   各模型家族癖好与适配要点
 │       └── 模型适配横向对比.md           #   多模型适配差异横向对比表
-└── formats/                               # 跨工具格式转换（各自独立可用）
-    ├── cursor-prompt-model-adaptation.mdc   # Cursor Rule（.mdc）
-    ├── claude-code-prompt-model-adaptation.md  # Claude Code 命令
-    └── codex-AGENTS.md                     # Codex / Agents 指引（AGENTS.md 风格）
+├── formats/                               # 跨工具格式转换（各自独立可用）
+│   ├── cursor-prompt-model-adaptation.mdc   # Cursor Rule（.mdc）
+│   ├── claude-code-prompt-model-adaptation.md  # Claude Code 命令
+│   └── codex-AGENTS.md                     # Codex / Agents 指引（AGENTS.md 风格）
+└── assets/                                # 文档配图（SVG，GitHub 原生渲染）
+    ├── style-principle-method.svg         #   优化风格与原理生命周期图（中文）
+    ├── style-principle-method-en.svg      #   同图英文版（供 README_en.md 引用）
+    ├── roadmap-a-to-d.svg                  #   自优化演进路线图（A→D，中文）
+    └── roadmap-a-to-d-en.svg               #   同图英文版（供 README_en.md 引用）
 ```
 
 ---
@@ -158,6 +164,64 @@ Codex 与多数 coding agent 会自动加载仓库根目录的 `AGENTS.md` 作�
 | 4 定稿终止 | 连改 3 轮后说「定稿」 | 输出最终版并提示可复制，不再追问 |
 
 4/4 通过 + 偏差清零 = 适配完成，写版本号归档（建议 `v1.1_模型名`），**不覆盖原版**。
+
+---
+
+## 后续计划：自优化与自适应（A→D 路线图）
+
+当前 skill 是**人驱动的提示词优化**：人看回归结果、手动改提示词。下一步可升级为**带评估闭环的自动提示优化**（灵感来自 DSPy / OPRO / APE）。下图是从「零依赖」到「完全自适应」的四阶演进路线，每阶都是上一阶的超集，**不可跳阶**。
+
+![自优化演进路线图：A 自评审 → D 自适应](assets/roadmap-a-to-d.svg)
+
+### 总策略：增量交付，每阶可独立验收
+
+- **A 自评审** = 给 skill 装「优化器元提示 + 自评规范」（纯提示，无需 API）
+- **B 闭环** = 在 A 上加「真实调用目标模型 + 自动评分器」（需脚本，本地跑）
+- **C 双模型** = 在 B 上加「独立裁判模型」（换 judge 配置即可）
+- **D 自适应** = 在 C 上加「模型癖好的数据驱动校准」（把 `model-quirks.md` 从静态表变动态调参）
+
+### 阶段 A：自评审（立即可做，不需 API）
+
+- **目标**：让「优化器」在纯提示层面自己改自己。
+- **构建**：
+  1. `references/eval-spec.md` — 把 4 组回归用例改写成 `{输入, 预期行为, 评分维度, 通过标准}`
+  2. `references/optimizer-meta-prompt.md` — 模型扮演「提示词优化器」，吃 `{当前提示词 + 自评报告}` → 吐 `{改进版 + 改动日志}`
+  3. `SKILL.md` 加第 5 步「自优化闭环（A 档）」
+- **做法**：在对话里手动跑循环——模型当优化器，按 eval-spec 自评每轮。
+- **验收**：同一段烂提示词跑 2–3 轮后，4 组用例自评通过率明显上升、且改动有迹可循。
+
+### 阶段 B：闭环（加真实执行）
+
+- **前置**：A 跑通。
+- **构建**：`scripts/run_loop.py` + 评分器（规则层正则/结构检查 + LLM-judge 语义评分 0–1）。
+- **做法**：脚本读 eval-spec，对候选提示词**真实调用目标模型 API** 拿输出 → 评分 → 报告喂回 A 档优化器 → 生成下一版；保留最高分版本，循环 3–5 轮自动停止。
+- **验收**：脚本一键跑完，输出「每轮分数曲线 + 最优提示词 + 改动日志」。
+
+### 阶段 C：双模型（独立裁判）
+
+- **前置**：B 跑通。
+- **构建**：judge 配置项（指定裁判模型）。
+- **做法**：把评分裁判换成另一个（或更强）模型，生成与裁判分离。
+- **验收**：同一候选，C 档分数比 B 档（自裁判）更严格、波动更小——证明去掉了自评宽松偏差。
+
+### 阶段 D：自适应（数据驱动调参）—— 终点
+
+- **前置**：C 跑通。
+- **核心思想**：把静态的 `model-quirks.md`（「DeepSeek 偏长」等）变成**可写入、可调整的约束参数**，由实测漂移自动修改。
+- **做法**（四步）：
+  1. eval-spec 给每个模型建一份「初始约束集」（来源即 model-quirks）
+  2. 评分器除打通过/失败，还输出**失败类型标签**：`过长 / 出戏 / 否定失效 / 格式崩 / 语感乱`
+  3. 优化器读失败标签，从「定向改法速查」里**自动选对应手法加强**（如检测到`过长` → 收紧字数上限 + 截断示例）
+  4. 循环 N 轮后，固化该模型的 `{适配版提示词 + 实际生效约束集}` 并自动填实检查表的「实际」列
+- **验收**：拿一个从未手调过的模型，D 档自动产出质量接近人工适配版的提示词，且检查表「实际」列被自动填实——**人工适配工作被替代**。
+
+### 三个贯穿原则
+
+1. **不跳阶**：D 依赖 B/C 的执行与评分——没有真跑测试，D 无从「自适应」。
+2. **防过拟合**：每阶都留一份 unseen 测试集，不能只针对已知 4 组优化。
+3. **评分对齐真实目标**：维度必须映射到「真实表现」，不能只盯格式是否好看。
+
+> 诚实边界：本仓库当前只提供 A 档所需的 `eval-spec` / `optimizer-meta-prompt` 设计思路（见上）。B/C/D 的「真实跑测试」脚本需要你在本地用 API key 执行——仓库可逐步补充 `scripts/run_loop.py` 等工件。
 
 ---
 
