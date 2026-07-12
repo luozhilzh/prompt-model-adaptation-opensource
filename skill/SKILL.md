@@ -46,6 +46,18 @@ Copy `references/checklist-template.md` into the user's workspace and fill secti
 
 Run the 4 cases from `references/regression-and-techniques.md` on the real target model. Fill the "实际/actual" column in the checklist. Any drift → return to checklist ④ and add a fix (e.g., XML delimiters, prefilling, stronger thinking-mode containment). Pass when all 4 cases pass and deviation is cleared.
 
+### Step 5 — Self-Optimizing Loop (Tier A)
+
+After Steps 1–4 produce an optimized/adapted prompt, optionally run a self-review loop so the prompt improves against the regression suite without manual tweaking each round.
+
+1. Take the candidate prompt and run the 4 cases from `references/eval-spec.md` (for Tier A, you may self-assess per the spec; for B/C/D, a script calls the real model — see the "Future plan" section in README).
+2. Build an `EVAL_REPORT` = per-case `{expected, actual, pass/fail, failure tags}`.
+3. Feed `{CANDIDATE_PROMPT + EVAL_REPORT}` into the optimizer meta-prompt in `references/optimizer-meta-prompt.md`. It returns `{change log + improved prompt}`.
+4. Use the improved prompt as the new candidate; repeat up to N rounds (suggest ≤5). Keep the highest-scoring version and its change log.
+5. Stop when all 4 cases pass (or rounds exhausted). The result is a prompt verified against the regression suite, ready to ship.
+
+> Tiers: **A** = self-review (no API, manual/LLM self-assess). **B** = closed loop (script calls the real model + scorer). **C** = dual-model (separate judge). **D** = adaptive (failure tags auto-drive targeted fixes and backfill the checklist's "actual" column). The repo currently ships the Tier A design; B/C/D need a local script with an API key. See README "Future plan: self-optimization & adaptation (A→D roadmap)".
+
 ## Targeted Fix Techniques (cheat sheet)
 
 - Negative → must-style: rewrite "不要X" as "必须Y / 只输出X".
@@ -63,4 +75,6 @@ See `references/regression-and-techniques.md` for the full list and the 4 regres
 - `references/checklist-template.md` — fillable 6-section adaptation checklist (copy into workspace per model).
 - `references/regression-and-techniques.md` — the 4 regression cases + full targeted-fix cheat sheet.
 - `references/model-quirks.md` — common quirks and adaptation priorities for DeepSeek / GLM / Qwen / Hunyuan families.
+- `references/eval-spec.md` — machine-readable spec for the 4 regression cases (id, input, expected, scoring dimensions, pass threshold) for A/B/C/D self-optimizing loops.
+- `references/optimizer-meta-prompt.md` — the "prompt optimizer" meta-prompt that turns `{candidate prompt + eval report}` into `{improved prompt + change log}`, driving the self-optimizing loop.
 - `references/模型适配横向对比.md` — cross-model comparison table of adaptation diffs across DeepSeek / GLM / Qwen / Hunyuan (handy when porting to multiple models).

@@ -22,6 +22,9 @@ prompt-model-adaptation-opensource/
 │       ├── checklist-template.md         #   可填写的 6 区块适配检查表
 │       ├── regression-and-techniques.md  #   4 组回归用例 + 定向改法速查
 │       ├── model-quirks.md               #   各模型家族癖好与适配要点
+│       ├── eval-spec.md                  #   4 组回归用例的机器可读评测规范（A→D 闭环用）
+│       ├── optimizer-meta-prompt.md      #   提示词优化器元提示（自优化闭环驱动核心）
+│       ├── demo-a-tier.md                #   A 档自评审实跑演示（0/4 → 4/4 记录）
 │       └── 模型适配横向对比.md           #   多模型适配差异横向对比表
 ├── formats/                               # 跨工具格式转换（各自独立可用）
 │   ├── cursor-prompt-model-adaptation.mdc   # Cursor Rule（.mdc）
@@ -184,15 +187,16 @@ Codex 与多数 coding agent 会自动加载仓库根目录的 `AGENTS.md` 作�
 - **C 双模型** = 在 B 上加「独立裁判模型」（换 judge 配置即可）
 - **D 自适应** = 在 C 上加「模型癖好的数据驱动校准」（把 `model-quirks.md` 从静态表变动态调参）
 
-### 阶段 A：自评审（立即可做，不需 API）
+### 阶段 A：自评审（✅ 已落地，不需 API）
 
 - **目标**：让「优化器」在纯提示层面自己改自己。
-- **构建**：
-  1. `references/eval-spec.md` — 把 4 组回归用例改写成 `{输入, 预期行为, 评分维度, 通过标准}`
-  2. `references/optimizer-meta-prompt.md` — 模型扮演「提示词优化器」，吃 `{当前提示词 + 自评报告}` → 吐 `{改进版 + 改动日志}`
-  3. `SKILL.md` 加第 5 步「自优化闭环（A 档）」
+- **构建**（已全部完成并随仓库发布）：
+  1. ✅ `references/eval-spec.md` — 把 4 组回归用例改写成机器可读 `{输入, 预期, 评分维度, 通过标准}`
+  2. ✅ `references/optimizer-meta-prompt.md` — 模型扮演「提示词优化器」，吃 `{当前提示词 + 评测报告}` → 吐 `{改进版 + 改动日志}`
+  3. ✅ `SKILL.md` 第 5 步「自优化闭环（A 档）」已加入工作流
 - **做法**：在对话里手动跑循环——模型当优化器，按 eval-spec 自评每轮。
 - **验收**：同一段烂提示词跑 2–3 轮后，4 组用例自评通过率明显上升、且改动有迹可循。
+- **实跑记录**：见 `references/demo-a-tier.md`——用「AI Prompt 教练」原提示词演示一轮，回归通过率 0/4 → 4/4。
 
 ### 阶段 B：闭环（加真实执行）
 
