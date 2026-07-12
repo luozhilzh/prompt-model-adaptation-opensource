@@ -1,8 +1,10 @@
-# B 档自优化闭环脚手架（真实外部 API）
+# B/C 档自优化闭环脚手架（真实外部 API）
 
-本目录提供 `run_loop.py`：对候选提示词**真实调用目标模型**，按 `eval-spec` 评分，把评测报告喂给优化器产出下一版，循环直到 4/4 通过或轮次上限。与 `skill/references/b-tier-test-record.md` 的 WorkBuddy 内测共用同一套评测/优化逻辑，**仅把「子 Agent 执行器」换成真实 `call_model()`**。
+本目录提供 `run_loop.py`：对候选提示词**真实调用目标模型**，按 `eval-spec` 评分，把评测报告喂给优化器产出下一版，循环直到 4/4 通过或轮次上限。与 `skill/references/b-tier-test-record.md` / `c_tier-test-record.md` 的 WorkBuddy 内测共用同一套评测/优化逻辑，**仅把「子 Agent 执行器」换成真实 `call_model()`**。
 
-> 诚实边界：分数来自真实模型调用，但语义层若用同模型裁判仍有自评偏差；想严谨就填 `JUDGE_MODEL` 上 C 档独立裁判。
+> **档位说明**：不填 `JUDGE_MODEL` 即 **B 档（自裁判）**——执行器 / 裁判 / 优化器同模型；填了 `JUDGE_MODEL`（或传 `--judge-model`，且与 `MODEL` 不同）即 **C 档（双模型 / 独立裁判）**——执行器留 `MODEL` 测真实表现，裁判 + 优化器走独立模型，消除自评宽松。详见第 7 节。
+
+> 诚实边界：B 档分数来自真实调用但语义层同模型裁判仍有自评偏差；C 档用独立模型裁判可消去该偏差，但成本更高（多一次模型调用 / 轮）。
 
 ## 1. 安装依赖
 
@@ -23,11 +25,16 @@ cp .env.example .env
 ## 3. 运行
 
 ```bash
-# 用仓库里的原始候选跑（仓库根目录下）
+# B 档（自裁判）：只填 MODEL，裁判/优化器同模型
 python scripts/run_loop.py --candidate b_tier_test/candidate_v1.md --rounds 5
 
 # 指定自己的用例 JSON（结构同 run_loop.py 里的 DEFAULT_CASES）
 python scripts/run_loop.py --candidate my_prompt.md --cases my_cases.json --rounds 3
+
+# C 档（双模型/独立裁判）：--judge-model 填不同于 MODEL 的模型
+#   执行器=目标模型(如 DeepSeek)，裁判+优化器=独立模型(如 gpt-4o)
+python scripts/run_loop.py --candidate b_tier_test/candidate_v1.md \
+    --judge-model gpt-4o --rounds 5
 ```
 
 ## 4. 输出（默认 `scripts/output/`）
@@ -61,3 +68,39 @@ for 轮次 in 1..N:
 - **成本**：每轮 ≈ 4 次执行 + 语义 judge 调用 + 1 次优化；控制 `--rounds`。
 - **非确定性**：固定 `temperature`（脚本默认 0.4/0.0）以便复现。
 - **解析脆弱**：优化器输出靠正则取最后一个代码块作为改进版；若你的模型输出格式异常，调 `_extract_code_block`。
+
+## 7. C 档（独立裁判 / 双模型）
+
+C 档是 B 档的升级：**把"裁判 + 优化器"从目标模型拆到独立模型**，只留执行器在目标模型上（因为候选提示词必须真跑在目标模型才能测出适配效果）。
+
+### 模型分配
+
+| 角色 | B 档 | C 档 |
+|---|---|---|
+| 执行器（跑候选提示词） | `MODEL` | `MODEL`（目标模型） |
+| 裁判（语义层 LLM-judge） | `MODEL` | `JUDGE_MODEL`（独立） |
+| 优化器（产下一版） | `MODEL` | `JUDGE_MODEL`（独立） |
+
+### 怎么开 C 档
+
+两种方式任选其一（效果相同）：
+
+```bash
+# 方式一：环境变量（.env 里填 JUDGE_MODEL）
+JUDGE_MODEL=gpt-4o        # 与 MODEL 不同即进入 C 档
+
+# 方式二：命令行参数（覆盖环境变量）
+python scripts/run_loop.py --candidate b_tier_test/candidate_v1.md \
+    --judge-model gpt-4o --rounds 5
+```
+
+启动时脚本会打印档位：
+```
+档位：C（双模型·独立裁判） ｜ 执行器(MODEL)=deepseek-chat ｜ 裁判/优化器(JUDGE_MODEL)=gpt-4o
+```
+
+### 与 WorkBuddy 内测的关系（诚实边界）
+
+- `c_tier-test-record.md` 在 WorkBuddy 内用「blind 裁判子 Agent（不读候选）」模拟 C 档，证明**方法论可跑通**（角色隔离的裁判能正确运行）。
+- 但 WorkBuddy 内执行器 / 裁判 / 优化器同属一个模型家族，"独立"只是**结构独立**，**无法证实"独立裁判更严/更稳"**。
+- 真正的偏差消除，必须由本脚手架填**跨家族**的 `JUDGE_MODEL`（如执行器 DeepSeek、裁判 GPT/Claude）来成立——这才是 README 里"C 档分数比 B 档更严格、波动更小"所指的真·双模型场景。

@@ -27,18 +27,22 @@ prompt-model-adaptation-opensource/
 │       ├── demo-a-tier.md                #   A 档自评审实跑演示（0/4 → 4/4 记录）
 │       ├── b-tier-test-record.md         #   WorkBuddy 内 B 档实测记录（1/4→4/4）+ 踩坑
 │       ├── b_tier_harness.md             #   WorkBuddy 内复现 B 档闭环的 SOP
+│       ├── c_tier-test-record.md         #   WorkBuddy 内 C 档实测记录（3/4→3/4→4/4，独立 blind 裁判）+ 诚实边界
+│       ├── c_tier_harness.md             #   WorkBuddy 内复现 C 档闭环的 SOP（独立裁判模板）
 │       └── 模型适配横向对比.md           #   多模型适配差异横向对比表
 ├── formats/                               # 跨工具格式转换（各自独立可用）
 │   ├── cursor-prompt-model-adaptation.mdc   # Cursor Rule（.mdc）
 │   ├── claude-code-prompt-model-adaptation.md  # Claude Code 命令
 │   └── codex-AGENTS.md                     # Codex / Agents 指引（AGENTS.md 风格）
-├── b_tier_test/                           # B 档实测产物（候选提示词 v1/v2，供复现）
+├── b_tier_test/                           # B/C 档实测产物（候选提示词 v1/v2/v3，供复现）
 │   ├── candidate_v1.md                    #   第 1 轮候选：用户原始「AI Prompt 教练」提示词
-│   └── candidate_v2.md                    #   第 2 轮候选：优化器修订版
-├── scripts/                               # B 档外部 API 闭环脚手架（本地跑，需 key）
-│   ├── run_loop.py                        #   主循环：执行 → 评分 → 优化
+│   ├── candidate_v2.md                    #   B 档第 2 轮候选：优化器修订版
+│   ├── candidate_v2_c.md                  #   C 档第 2 轮候选（澄清门，过触发）
+│   └── candidate_v3_c.md                  #   C 档第 3 轮候选（修过触发，4/4）
+├── scripts/                               # B/C 档外部 API 闭环脚手架（本地跑，需 key）
+│   ├── run_loop.py                        #   主循环：执行 → 评分 → 优化（B/C 档，--judge-model 切 C）
 │   ├── .env.example                       #   API 配置模板
-│   └── README.md                          #   运行说明
+│   └── README.md                          #   运行说明（含 C 档双模型节）
 └── assets/                                # 文档配图（PNG，GitHub/Gitee 通用渲染）
     ├── style-principle-method.svg         #   [源文件] 生命周期图（中文 SVG）
     ├── style-principle-method.png         #   生命周期图（中文 PNG，README 引用此）
@@ -217,12 +221,15 @@ Codex 与多数 coding agent 会自动加载仓库根目录的 `AGENTS.md` 作�
 - **诚实边界**：此内测的执行器 / 评分器 / 优化器同属 WorkBuddy 模型家族，分数**仅可纵向比（v1→v2）**，非跨模型基准；要消自评偏差需上 C 档独立裁判。
 - **外部 API 脚手架已提供**：见仓库根 `scripts/run_loop.py` + `scripts/README.md`——真实调用目标模型跑闭环（需本地 API key，OpenAI 兼容）。与 WorkBuddy 内测共用 `eval-spec` / 优化器逻辑，仅把「子 Agent 执行器」替换为 `call_model()`；填 `JUDGE_MODEL` 即升级为 C 档独立裁判。
 
-### 阶段 C：双模型（独立裁判）
+### 阶段 C：双模型（独立裁判）—— 已就绪
 
 - **前置**：B 跑通。
-- **构建**：judge 配置项（指定裁判模型）。
-- **做法**：把评分裁判换成另一个（或更强）模型，生成与裁判分离。
-- **验收**：同一候选，C 档分数比 B 档（自裁判）更严格、波动更小——证明去掉了自评宽松偏差。
+- **构建**：`scripts/run_loop.py` 的 `JUDGE_MODEL` / `--judge-model`（裁判 + 优化器走独立模型，执行器留目标模型）；WorkBuddy 内测用「独立 blind 裁判子 Agent」模拟角色隔离。
+- **做法**：把评分裁判（及优化器）换成另一个（或更强）模型，生成与裁判分离。
+- **已在 WorkBuddy 内实测（无需 API key）**：见 `references/c_tier-test-record.md`——用**独立 blind 裁判子 Agent**（只评输出、不读候选）跑通闭环，通过率 **3/4 → 3/4 → 4/4**（中途修掉澄清门过触发回归）；复现见 `references/c_tier_harness.md`。候选原文在 `b_tier_test/candidate_v1.md`、`candidate_v2_c.md`、`candidate_v3_c.md`。
+- **诚实边界（重要）**：WorkBuddy 内执行器 / 裁判 / 优化器同属一个模型家族，"独立"只是**结构独立（上下文隔离）**，**不能证实"独立裁判更严/更稳"**——内测中 blind 裁判与自裁判在所有被测样本上分数完全一致。该性质只对**真·双模型**（外部 `run_loop.py` 填跨家族 `JUDGE_MODEL`）成立。
+- **外部真·双模型已提供**：`scripts/run_loop.py` 传 `--judge-model <不同模型>` 即进入 C 档——执行器 = `MODEL`、裁判 + 优化器 = `JUDGE_MODEL`，详见 `scripts/README.md` 第 7 节。
+- **验收（真·双模型）**：同一候选，跨家族独立裁判的分数比 B 档（自裁判）更严格、波动更小——证明去掉了自评宽松偏差。
 
 ### 阶段 D：自适应（数据驱动调参）—— 终点
 
@@ -241,7 +248,10 @@ Codex 与多数 coding agent 会自动加载仓库根目录的 `AGENTS.md` 作�
 2. **防过拟合**：每阶都留一份 unseen 测试集，不能只针对已知 4 组优化。
 3. **评分对齐真实目标**：维度必须映射到「真实表现」，不能只盯格式是否好看。
 
-> 诚实边界：本仓库提供 A 档完整设计（`eval-spec` / `optimizer-meta-prompt` / SKILL 第 5 步），以及 **B 档的双重实现**——① WorkBuddy 内实测记录与复现 SOP（`b-tier-test-record.md` / `b_tier_harness.md`，子 Agent 当执行器、无需 key）；② 真·外部 API 脚手架 `scripts/run_loop.py`（本地填 key 运行）。C 档（独立裁判）、D 档（自适应调参）仍待补充。
+> 诚实边界：本仓库提供 A 档完整设计（`eval-spec` / `optimizer-meta-prompt` / SKILL 第 5 步），**B 档与 C 档的双重实现均已就绪**——
+> - **B 档**：① WorkBuddy 内实测与复现 SOP（`b-tier-test-record.md` / `b_tier_harness.md`，子 Agent 当执行器、无需 key）；② 真·外部 API 脚手架 `scripts/run_loop.py`（自裁判模式）。
+> - **C 档**：① WorkBuddy 内实测与复现 SOP（`c_tier-test-record.md` / `c_tier_harness.md`，独立 blind 裁判、无需 key，仅证方法论）；② 真·外部 API 脚手架 `scripts/run_loop.py --judge-model`（跨家族独立裁判，真·双模型）。
+> 诚实提醒：WorkBuddy 内测的"独立"是**结构独立**，不能证实偏差消除；该性质只对跨家族 `JUDGE_MODEL` 成立。D 档（自适应调参）仍待补充。
 
 ---
 

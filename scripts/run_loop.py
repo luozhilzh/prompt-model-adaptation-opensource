@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-run_loop.py — B 档自优化闭环脚手架（真实外部 API）
+run_loop.py — B/C 档自优化闭环脚手架（真实外部 API）
 
 在 WorkBuddy 之外、本地运行。对候选提示词**真实调用目标模型**，
 按 eval-spec 评分，把评测报告喂给优化器产出下一版，循环直到 4/4 通过或轮次上限。
@@ -17,13 +17,23 @@ run_loop.py — B 档自优化闭环脚手架（真实外部 API）
         JUDGE_MODEL=                            # 可选：独立裁判模型（C 档用，留空则同 MODEL）
 
 运行：
+    # B 档（自裁判）：只填 MODEL，裁判/优化器同模型
     python run_loop.py --candidate ../b_tier_test/candidate_v1.md --rounds 5
 
+    # C 档（双模型/独立裁判）：--judge-model 填不同于 MODEL 的模型
+    #   执行器 = MODEL（目标模型，测提示词真实表现）
+    #   裁判 + 优化器 = JUDGE_MODEL（独立模型，消除自评宽松）
+    python run_loop.py --candidate ../b_tier_test/candidate_v1.md \
+        --judge-model gpt-4o --rounds 5
+
 与 WorkBuddy 内测的关系：
-    WorkBuddy 内测（b-tier-test-record.md）用「子 Agent 当执行器」跑通同一套逻辑；
-    本脚手架把「执行器」换成真实 call_model()，评分/优化逻辑完全一致。
-    诚实边界：分数来自真实模型调用，但语义层若用同模型裁判仍有自评偏差，
-    建议填 JUDGE_MODEL 上 C 档独立裁判。
+    WorkBuddy 内测（b-tier-test-record.md / c_tier-test-record.md）用「子 Agent 当执行器」
+    跑通同一套逻辑；本脚手架把「执行器」换成真实 call_model()，评分/优化逻辑完全一致。
+    - B 档内测：裁判与被测同上下文 → 本脚手架不填 JUDGE_MODEL（同 MODEL 自评）。
+    - C 档内测：裁判与被测结构隔离（blind）→ 本脚手架填 JUDGE_MODEL/--judge-model
+      （不同模型家族），升级为"模型独立"的真·双模型。
+    诚实边界：本仓库 WorkBuddy 内测只能验证 C 档方法论（角色隔离 blind 裁判可运行），
+    不能证实"独立裁判更严"——那需真·双模型（跨家族 JUDGE_MODEL）才成立。
 
 作者注：本文件是脚手架，含清晰 TODO 与默认值；按你的 API 调整即可。
 """
@@ -259,7 +269,7 @@ def optimize(candidate: str, report: list[dict]) -> tuple[str, str]:
         for r in report
     )
     user = f"EVAL_REPORT:\n{report_txt}\n\nCANDIDATE_PROMPT:\n{candidate}"
-    raw = call_model(_OPTIMIZER_SYSTEM, user, model=MODEL, temperature=0.4)
+    raw = call_model(_OPTIMIZER_SYSTEM, user, model=JUDGE_MODEL, temperature=0.4)
     improved = _extract_code_block(raw)
     return improved, raw
 
@@ -268,12 +278,22 @@ def optimize(candidate: str, report: list[dict]) -> tuple[str, str]:
 # 8. 主循环
 # ----------------------------------------------------------------------------
 def main():
-    ap = argparse.ArgumentParser(description="B 档自优化闭环脚手架")
+    ap = argparse.ArgumentParser(description="B/C 档自优化闭环脚手架")
     ap.add_argument("--candidate", required=True, help="初始候选提示词文件路径")
     ap.add_argument("--cases", default=None, help="用例 JSON 文件路径（默认内置 4 组）")
     ap.add_argument("--rounds", type=int, default=5, help="最大轮次（默认 5）")
     ap.add_argument("--out", default="output", help="输出目录（默认 output/）")
+    ap.add_argument("--judge-model", default=None,
+                    help="独立裁判模型（C 档双模型）；填了即覆盖 JUDGE_MODEL 环境变量，"
+                         "裁判+优化器走它，执行器仍留 MODEL")
     args = ap.parse_args()
+
+    # C 档路由：--judge-model 或 JUDGE_MODEL 与 MODEL 不同 → 双模型
+    global JUDGE_MODEL
+    if args.judge_model:
+        JUDGE_MODEL = args.judge_model
+    tier = "C（双模型·独立裁判）" if JUDGE_MODEL and JUDGE_MODEL != MODEL else "B（自裁判）"
+    print(f"档位：{tier} ｜ 执行器(MODEL)={MODEL} ｜ 裁判/优化器(JUDGE_MODEL)={JUDGE_MODEL}")
 
     candidate = Path(args.candidate).read_text(encoding="utf-8")
     cases = DEFAULT_CASES
@@ -320,8 +340,11 @@ def main():
     # 输出最优
     (out_dir / "best_candidate.md").write_text(best_candidate, encoding="utf-8")
     (out_dir / "history.json").write_text(
-        json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
+        json.dumps({"tier": tier, "model": MODEL, "judge_model": JUDGE_MODEL,
+                    "rounds": history}, ensure_ascii=False, indent=2),
+        encoding="utf-8")
     print(f"\n=== 完成 ===")
+    print(f"档位：{tier}")
     print(f"最优候选：第 {best_round} 轮，分数 {best_score:.2f}")
     print(f"产物目录：{out_dir.resolve()}")
 
