@@ -1,10 +1,10 @@
-# B/C 档自优化闭环脚手架（真实外部 API）
+# B/C/D 档自优化闭环脚手架（真实外部 API）
 
-本目录提供 `run_loop.py`：对候选提示词**真实调用目标模型**，按 `eval-spec` 评分，把评测报告喂给优化器产出下一版，循环直到 4/4 通过或轮次上限。与 `skill/references/b-tier-test-record.md` / `c_tier-test-record.md` 的 WorkBuddy 内测共用同一套评测/优化逻辑，**仅把「子 Agent 执行器」换成真实 `call_model()`**。
+本目录提供 `run_loop.py`：对候选提示词**真实调用目标模型**，按 `eval-spec` 评分，把评测报告喂给优化器产出下一版，循环直到 4/4 通过或轮次上限。与 `skill/references/b-tier-test-record.md` / `c_tier-test-record.md` / `d_tier-test-record.md` 的 WorkBuddy 内测共用同一套评测/优化逻辑，**仅把「子 Agent 执行器」换成真实 `call_model()`**。
 
-> **档位说明**：不填 `JUDGE_MODEL` 即 **B 档（自裁判）**——执行器 / 裁判 / 优化器同模型；填了 `JUDGE_MODEL`（或传 `--judge-model`，且与 `MODEL` 不同）即 **C 档（双模型 / 独立裁判）**——执行器留 `MODEL` 测真实表现，裁判 + 优化器走独立模型，消除自评宽松。详见第 7 节。
+> **档位说明**：不填 `JUDGE_MODEL` 即 **B 档（自裁判）**——执行器 / 裁判 / 优化器同模型；填了 `JUDGE_MODEL`（或传 `--judge-model`，且与 `MODEL` 不同）即 **C 档（双模型 / 独立裁判）**——执行器留 `MODEL` 测真实表现，裁判 + 优化器走独立模型，消除自评宽松；加 `--d-mode` 即 **D 档（自适应）**——在 C 档之上自动分类失败类型、注入定向改法、跑完自填检查表。详见第 7、8 节。
 
-> 诚实边界：B 档分数来自真实调用但语义层同模型裁判仍有自评偏差；C 档用独立模型裁判可消去该偏差，但成本更高（多一次模型调用 / 轮）。
+> 诚实边界：B 档分数来自真实调用但语义层同模型裁判仍有自评偏差；C 档用独立模型裁判可消去该偏差，但成本更高（多一次模型调用 / 轮）；D 档的"自适应替代人工"需跨家族 `JUDGE_MODEL` + 足量 unseen 集才成立，仅针对已知 4 组优化会过拟合。
 
 ## 1. 安装依赖
 
@@ -104,3 +104,40 @@ python scripts/run_loop.py --candidate b_tier_test/candidate_v1.md \
 - `c_tier-test-record.md` 在 WorkBuddy 内用「blind 裁判子 Agent（不读候选）」模拟 C 档，证明**方法论可跑通**（角色隔离的裁判能正确运行）。
 - 但 WorkBuddy 内执行器 / 裁判 / 优化器同属一个模型家族，"独立"只是**结构独立**，**无法证实"独立裁判更严/更稳"**。
 - 真正的偏差消除，必须由本脚手架填**跨家族**的 `JUDGE_MODEL`（如执行器 DeepSeek、裁判 GPT/Claude）来成立——这才是 README 里"C 档分数比 B 档更严格、波动更小"所指的真·双模型场景。
+
+## 8. D 档（自适应 · 失败类型驱动定向改法 + 检查表自填）
+
+D 档 = C 档（独立裁判）之上加一层**自动化适配链**：把评测里的失败维度自动归类为 5 类失败类型，按速查表给优化器推荐定向改法，跑完把检查表"实际"列自动填实。
+
+### 怎么开 D 档
+
+```bash
+# 建议配 --judge-model（独立裁判）一起开，避免自用自评
+python scripts/run_loop.py --candidate b_tier_test/candidate_v1.md \
+    --judge-model gpt-4o --d-mode --rounds 5
+
+# 指定自动填实的检查表输出路径（默认 output/checklist_auto.md）
+python scripts/run_loop.py --candidate b_tier_test/candidate_v1.md \
+    --judge-model gpt-4o --d-mode --checklist my_checklist.md --rounds 5
+```
+
+### D 档自动做了什么
+
+| 步骤 | 行为 | 来源 |
+|---|---|---|
+| 失败类型分类 | 把每条失败维度映射到 `过长 / 出戏 / 否定失效 / 格式崩 / 语感乱` | 脚本内 `FAILURE_TYPE_MAP`（对应 `eval-spec` 维度 key） |
+| 定向改法推荐 | 按类型查 `regression-and-techniques.md` 速查表，给出 1–2 个手法（如 `过长` → 限长+截断示例） | 脚本内 `TECHNIQUE_MAP` |
+| 优化器增强 | 把"失败类型诊断 + 定向改法建议"拼进优化器 prompt（用 `_OPTIMIZER_SYSTEM_D`），要求优先用推荐药方 | 见文件顶部说明 |
+| 检查表自填 | 达标轮后自动生成 `checklist_auto.md`，按 `checklist-template.md` 结构填实「实际」列与「结果」勾选 | `generate_checklist()` |
+
+启动时每轮会打印分类结果，例如：
+```
+[D 档分类] case_1:过长→限长+截断示例+预填充锁定; case_4:过长→限长+截断示例+预填充锁定
+```
+
+### 与 WorkBuddy 内测的关系（诚实边界）
+
+- `d_tier-test-record.md` 在 WorkBuddy 内用「失败类型分类 → 定向改法 → 检查表自填」跑通闭环（通过率 2/4 → 3/4 → 4/4）。
+- 但 WorkBuddy 内执行器 / 裁判 / 优化器同家族，且**无真实跨模型漂移数据**——分类器只在已知 4 组上贴标签，检查表是**回填结论**而非 D 档**自主发现**新约束。
+- 要验证"自适应替代人工适配"，必须用本脚手架 `--d-mode` 配**跨家族** `JUDGE_MODEL` + **足量 unseen 用例集**（输入不同、结构同）一起跑：只针对已知 4 组优化会过拟合，那不是真自适应。
+- 已知局限：分类器只认"输出表现"，认不出"门控逻辑配置错误"（如澄清门过触发会被误归"格式崩"），需优化器自行识别修复。

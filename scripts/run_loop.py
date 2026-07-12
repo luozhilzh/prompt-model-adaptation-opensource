@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-run_loop.py — B/C 档自优化闭环脚手架（真实外部 API）
+run_loop.py — B/C/D 档自优化闭环脚手架（真实外部 API）
 
 在 WorkBuddy 之外、本地运行。对候选提示词**真实调用目标模型**，
 按 eval-spec 评分，把评测报告喂给优化器产出下一版，循环直到 4/4 通过或轮次上限。
@@ -26,14 +26,22 @@ run_loop.py — B/C 档自优化闭环脚手架（真实外部 API）
     python run_loop.py --candidate ../b_tier_test/candidate_v1.md \
         --judge-model gpt-4o --rounds 5
 
+    # D 档（自适应·失败类型驱动定向改法 + 检查表自填）：在 C 档基础上加 --d-mode
+    #   自动把失败维度归类为 过长/出戏/否定失效/格式崩/语感乱，并注入对应定向改法给优化器，
+    #   跑完自动把检查表"实际"列填实到 output/checklist_auto.md（可用 --checklist 改路径）
+    python run_loop.py --candidate ../b_tier_test/candidate_v1.md \
+        --judge-model gpt-4o --d-mode --rounds 5
+
 与 WorkBuddy 内测的关系：
-    WorkBuddy 内测（b-tier-test-record.md / c_tier-test-record.md）用「子 Agent 当执行器」
-    跑通同一套逻辑；本脚手架把「执行器」换成真实 call_model()，评分/优化逻辑完全一致。
+    WorkBuddy 内测（b-tier-test-record.md / c_tier-test-record.md / d_tier-test-record.md）用
+    「子 Agent 当执行器」跑通同一套逻辑；本脚手架把「执行器」换成真实 call_model()，评分/优化逻辑完全一致。
     - B 档内测：裁判与被测同上下文 → 本脚手架不填 JUDGE_MODEL（同 MODEL 自评）。
     - C 档内测：裁判与被测结构隔离（blind）→ 本脚手架填 JUDGE_MODEL/--judge-model
       （不同模型家族），升级为"模型独立"的真·双模型。
-    诚实边界：本仓库 WorkBuddy 内测只能验证 C 档方法论（角色隔离 blind 裁判可运行），
-    不能证实"独立裁判更严"——那需真·双模型（跨家族 JUDGE_MODEL）才成立。
+    - D 档内测：在 C 档之上加"失败类型分类 → 定向改法 → 检查表自填"自动化链 →
+      本脚手架加 --d-mode 复现同一链条（分类器 + 检查表自填）。
+    诚实边界：本仓库 WorkBuddy 内测只能验证各档方法论（角色隔离 blind 裁判、失败类型驱动自适应链可运行），
+    不能证实"独立裁判更严"或"自适应替代人工适配"——那需真·双模型（跨家族 JUDGE_MODEL）+ 足量 unseen 集才成立。
 
 作者注：本文件是脚手架，含清晰 TODO 与默认值；按你的 API 调整即可。
 """
@@ -69,7 +77,7 @@ JUDGE_MODEL = os.getenv("JUDGE_MODEL", "") or MODEL  # 留空则同模型自评
 
 if not API_KEY:
     sys.exit("✗ 未找到 OPENAI_API_KEY。请复制 .env.example 为 .env 并填写。")
-if OPENAI is None:
+if OpenAI is None:
     sys.exit("✗ 未安装 openai SDK。请运行: pip install openai python-dotenv")
 
 
@@ -137,6 +145,60 @@ DEFAULT_CASES = [
         "pass_threshold": 1.0,
     },
 ]
+
+
+# ----------------------------------------------------------------------------
+# 2.5 D 档：失败类型分类 + 定向改法速查（数据驱动自适应核心）
+#     把每条失败维度归到 5 类之一，并接上 regression-and-techniques.md 的对应手法。
+#     当前 4 组用例主要暴露 过长/出戏/格式崩；否定失效/语感乱 留作更宽用例集扩展。
+# ----------------------------------------------------------------------------
+FAILURE_TYPES = ["过长", "出戏", "否定失效", "格式崩", "语感乱"]
+
+# 评测维度 key → 失败类型
+FAILURE_TYPE_MAP = {
+    "no_premature_generation": "过长",
+    "asks_clarifying_question": "过长",
+    "stops_prompting": "过长",
+    "keeps_coach_identity": "出戏",
+    "no_disclaimer_leak": "出戏",
+    "adds_missing_sections": "格式崩",
+    "shows_gap_diagnosis": "格式崩",
+    "marks_changes": "格式崩",
+    "outputs_final_version": "格式崩",
+    # 否定失效 / 语感乱：当前 4 组无对应维度，留作扩展（见 d_tier-test-record.md 第 9 节）
+}
+
+# 失败类型 → 推荐定向改法（来自 regression-and-techniques.md 速查表）
+TECHNIQUE_MAP = {
+    "过长": ["限长+截断示例", "预填充锁定"],
+    "出戏": ["XML标签包裹", "预填充锁定", "否定→必须式"],
+    "否定失效": ["否定→必须式"],
+    "格式崩": ["few-shot对齐", "XML标签包裹"],
+    "语感乱": ["显式语言声明", "thinking收口"],
+}
+
+
+def classify_failures(report: list[dict]) -> list[dict]:
+    """D 档：把评测报告里的失败维度映射为 (失败类型, 推荐手法)。
+
+    返回 [{case, name, dim, ftype, techniques}, ...]，供优化器与日志使用。
+    诚实局限：只认"输出表现"，认不出门控逻辑配置错误（如澄清门过触发会被误归格式崩）。
+    """
+    out = []
+    for r in report:
+        if r["passed"]:
+            continue
+        for d in r["dimensions"]:
+            if d["pass"] >= 1.0:
+                continue
+            ftype = FAILURE_TYPE_MAP.get(d["key"])
+            if not ftype:
+                continue
+            out.append({
+                "case": r["id"], "name": r["name"], "dim": d["key"],
+                "ftype": ftype, "techniques": TECHNIQUE_MAP.get(ftype, []),
+            })
+    return out
 
 
 # ----------------------------------------------------------------------------
@@ -254,6 +316,19 @@ _OPTIMIZER_SYSTEM = """# Role: 提示词优化器（Prompt Optimizer）
 （完整、可直接复制使用的改进版，放在一个 markdown 代码块里）
 只输出以上内容，不要寒暄、不要解释理论。"""
 
+_OPTIMIZER_SYSTEM_D = """# Role: 提示词优化器（Prompt Optimizer · D 档自适应）
+你是一位资深的提示词工程师。你的任务不是完成任务，而是改进用于完成任务的提示词本身。
+收到 CANDIDATE_PROMPT 与 EVAL_REPORT 后，你还会收到一份【D 档·失败类型诊断 + 定向改法建议】。
+请优先采用建议里对应的定向改法（如"限长+截断示例""XML标签包裹"）修复对应失败类型，
+并在改动日志中标注你用了哪个药方。
+
+输出：
+## 改动日志
+- [失败标签/失败类型] 原问题 → 改法（注明所用定向改法：如"限长+截断示例"）→ 预期效果
+## 改进版提示词
+（完整、可直接复制使用的改进版，放在一个 markdown 代码块里）
+只输出以上内容，不要寒暄、不要解释理论。"""
+
 
 def _extract_code_block(text: str) -> str:
     blocks = re.findall(r"```(?:markdown)?\n(.*?)```", text, re.DOTALL)
@@ -262,23 +337,61 @@ def _extract_code_block(text: str) -> str:
     return text.strip()
 
 
-def optimize(candidate: str, report: list[dict]) -> tuple[str, str]:
+def _classify_block(failures: list[dict]) -> str:
+    if not failures:
+        return "（本轮无失败，无需定向改法）"
+    lines = [
+        f"- {f['case']} {f['name']}: 维度[{f['dim']}] 判定失败类型=[{f['ftype']}]，"
+        f"建议定向改法={f['techniques']}"
+        for f in failures
+    ]
+    return "\n".join(lines)
+
+
+def optimize(candidate: str, report: list[dict], d_mode: bool = False,
+             failures: list[dict] | None = None) -> tuple[str, str]:
     report_txt = "\n".join(
         f"- {r['id']} {r['name']}: {'通过' if r['passed'] else '失败'} "
         f"(score={r['score']}, 失败标签={r['fail_labels'] or '无'})"
         for r in report
     )
     user = f"EVAL_REPORT:\n{report_txt}\n\nCANDIDATE_PROMPT:\n{candidate}"
-    raw = call_model(_OPTIMIZER_SYSTEM, user, model=JUDGE_MODEL, temperature=0.4)
+    if d_mode:
+        user += "\n\n【D 档·失败类型诊断 + 定向改法建议】\n" + _classify_block(failures or [])
+    raw = call_model(_OPTIMIZER_SYSTEM_D if d_mode else _OPTIMIZER_SYSTEM,
+                     user, model=JUDGE_MODEL, temperature=0.4)
     improved = _extract_code_block(raw)
     return improved, raw
+
+
+def generate_checklist(report: list[dict], path: str) -> None:
+    """D 档：把评测结果自动填实检查表的『实际』列与『结果』勾选。
+
+    仅回填本轮结论（诚实边界：是回填非发现新约束，见 d_tier-test-record.md 第 9 节）。
+    """
+    lines = [
+        "# 模型适配检查表（D 档自动填实）", "",
+        "> 由 run_loop.py --d-mode 自动生成：根据评测结果填实『实际』列与『结果』勾选。",
+        "> 注：本表回填的是本轮评测结论，并非 D 档自主发现的新约束。", "",
+    ]
+    for i, r in enumerate(report, 1):
+        actual = ("通过" if r["passed"]
+                  else f"失败（失败标签：{', '.join(r['fail_labels']) or '无'}）")
+        tick_pass = "x" if r["passed"] else " "
+        tick_fail = "x" if not r["passed"] else " "
+        lines += [
+            f"**用例 {i} — {r['name']}**",
+            f"- 实际：{actual}",
+            f"- 结果：[{tick_pass}] 通过  [{tick_fail}] 失败", "",
+        ]
+    Path(path).write_text("\n".join(lines), encoding="utf-8")
 
 
 # ----------------------------------------------------------------------------
 # 8. 主循环
 # ----------------------------------------------------------------------------
 def main():
-    ap = argparse.ArgumentParser(description="B/C 档自优化闭环脚手架")
+    ap = argparse.ArgumentParser(description="B/C/D 档自优化闭环脚手架")
     ap.add_argument("--candidate", required=True, help="初始候选提示词文件路径")
     ap.add_argument("--cases", default=None, help="用例 JSON 文件路径（默认内置 4 组）")
     ap.add_argument("--rounds", type=int, default=5, help="最大轮次（默认 5）")
@@ -286,14 +399,25 @@ def main():
     ap.add_argument("--judge-model", default=None,
                     help="独立裁判模型（C 档双模型）；填了即覆盖 JUDGE_MODEL 环境变量，"
                          "裁判+优化器走它，执行器仍留 MODEL")
+    ap.add_argument("--d-mode", action="store_true",
+                    help="D 档（自适应）：开启失败类型分类→定向改法注入→检查表自填；"
+                         "建议配合 --judge-model 以获得独立裁判")
+    ap.add_argument("--checklist", default=None,
+                    help="D 档检查表输出路径（默认 <out>/checklist_auto.md）；仅 --d-mode 生效")
     args = ap.parse_args()
 
-    # C 档路由：--judge-model 或 JUDGE_MODEL 与 MODEL 不同 → 双模型
+    # 档位路由：D > C > B
     global JUDGE_MODEL
     if args.judge_model:
         JUDGE_MODEL = args.judge_model
-    tier = "C（双模型·独立裁判）" if JUDGE_MODEL and JUDGE_MODEL != MODEL else "B（自裁判）"
-    print(f"档位：{tier} ｜ 执行器(MODEL)={MODEL} ｜ 裁判/优化器(JUDGE_MODEL)={JUDGE_MODEL}")
+    if args.d_mode:
+        tier = "D（自适应·定向改法+检查表自填）"
+    elif JUDGE_MODEL and JUDGE_MODEL != MODEL:
+        tier = "C（双模型·独立裁判）"
+    else:
+        tier = "B（自裁判）"
+    print(f"档位：{tier} ｜ 执行器(MODEL)={MODEL} ｜ 裁判/优化器(JUDGE_MODEL)={JUDGE_MODEL}"
+          + (" ｜ D 档自适应=开" if args.d_mode else ""))
 
     candidate = Path(args.candidate).read_text(encoding="utf-8")
     cases = DEFAULT_CASES
@@ -303,7 +427,7 @@ def main():
     out_dir = Path(args.out)
     out_dir.mkdir(exist_ok=True)
 
-    best_candidate, best_score, best_round = candidate, -1.0, 0
+    best_candidate, best_score, best_round, best_report = candidate, -1.0, 0, None
     history = []
 
     for rnd in range(1, args.rounds + 1):
@@ -321,17 +445,24 @@ def main():
         (out_dir / f"report_round{rnd}.json").write_text(
             json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
 
-        history.append({"round": rnd, "score": round_score, "report": report})
+        # D 档：失败类型分类
+        failures = classify_failures(report) if args.d_mode else []
+        if args.d_mode and failures:
+            print("  [D 档分类] " + "; ".join(
+                f"{f['case']}:{f['ftype']}→{'+'.join(f['techniques'])}" for f in failures))
+
+        history.append({"round": rnd, "score": round_score, "report": report,
+                        "failures": [f["ftype"] for f in failures] if args.d_mode else []})
 
         if round_score > best_score:
-            best_score, best_candidate, best_round = round_score, candidate, rnd
+            best_score, best_candidate, best_round, best_report = round_score, candidate, rnd, report
 
         if n_pass == len(report):
             print(f"✅ 第 {rnd} 轮已达 4/4，停止。")
             break
 
-        # 优化 → 下一轮候选
-        improved, _ = optimize(candidate, report)
+        # 优化 → 下一轮候选（D 档注入失败类型 + 定向改法）
+        improved, _ = optimize(candidate, report, d_mode=args.d_mode, failures=failures)
         if not improved or improved == candidate:
             print("⚠ 优化器未产出有效改动，停止以避免空转。")
             break
@@ -341,8 +472,15 @@ def main():
     (out_dir / "best_candidate.md").write_text(best_candidate, encoding="utf-8")
     (out_dir / "history.json").write_text(
         json.dumps({"tier": tier, "model": MODEL, "judge_model": JUDGE_MODEL,
-                    "rounds": history}, ensure_ascii=False, indent=2),
+                    "d_mode": args.d_mode, "rounds": history}, ensure_ascii=False, indent=2),
         encoding="utf-8")
+
+    # D 档：检查表"实际"列自动填实
+    if args.d_mode and best_report is not None:
+        checklist_path = args.checklist or str(out_dir / "checklist_auto.md")
+        generate_checklist(best_report, checklist_path)
+        print(f"检查表（自动填实）：{checklist_path}")
+
     print(f"\n=== 完成 ===")
     print(f"档位：{tier}")
     print(f"最优候选：第 {best_round} 轮，分数 {best_score:.2f}")
