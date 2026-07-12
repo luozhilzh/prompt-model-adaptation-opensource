@@ -27,11 +27,15 @@ prompt-model-adaptation-opensource/
 │   ├── cursor-prompt-model-adaptation.mdc   # Cursor Rule（.mdc）
 │   ├── claude-code-prompt-model-adaptation.md  # Claude Code 命令
 │   └── codex-AGENTS.md                     # Codex / Agents 指引（AGENTS.md 风格）
-└── assets/                                # 文档配图（SVG，GitHub 原生渲染）
-    ├── style-principle-method.svg         #   优化风格与原理生命周期图（中文）
-    ├── style-principle-method-en.svg      #   同图英文版（供 README_en.md 引用）
-    ├── roadmap-a-to-d.svg                  #   自优化演进路线图（A→D，中文）
-    └── roadmap-a-to-d-en.svg               #   同图英文版（供 README_en.md 引用）
+└── assets/                                # 文档配图（PNG，GitHub/Gitee 通用渲染）
+    ├── style-principle-method.svg         #   [源文件] 生命周期图（中文 SVG）
+    ├── style-principle-method.png         #   生命周期图（中文 PNG，README 引用此）
+    ├── style-principle-method-en.svg      #   [源文件] 同图英文版 SVG
+    ├── style-principle-method-en.png      #   同图英文版 PNG
+    ├── roadmap-a-to-d.svg                  #   [源文件] 路线图 A→D（中文 SVG）
+    ├── roadmap-a-to-d.png                  #   路线图 A→D（中文 PNG，README 引用此）
+    ├── roadmap-a-to-d-en.svg               #   [源文件] 同图英文版 SVG
+    └── roadmap-a-to-d-en.png               #   同图英文版 PNG
 ```
 
 ---
@@ -47,7 +51,7 @@ prompt-model-adaptation-opensource/
 
 ## 优化风格与原理
 
-![提示词优化生命周期：风格与原理](assets/style-principle-method.svg)
+![提示词优化生命周期：风格与原理](assets/style-principle-method.png)
 
 ### 风格：工程化、结构化、可复现（不是"措辞玄学"）
 
@@ -171,7 +175,7 @@ Codex 与多数 coding agent 会自动加载仓库根目录的 `AGENTS.md` 作�
 
 当前 skill 是**人驱动的提示词优化**：人看回归结果、手动改提示词。下一步可升级为**带评估闭环的自动提示优化**（灵感来自 DSPy / OPRO / APE）。下图是从「零依赖」到「完全自适应」的四阶演进路线，每阶都是上一阶的超集，**不可跳阶**。
 
-![自优化演进路线图：A 自评审 → D 自适应](assets/roadmap-a-to-d.svg)
+![自优化演进路线图：A 自评审 → D 自适应](assets/roadmap-a-to-d.png)
 
 ### 总策略：增量交付，每阶可独立验收
 

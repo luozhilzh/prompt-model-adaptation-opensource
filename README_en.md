@@ -27,11 +27,15 @@ prompt-model-adaptation-opensource/
 │   ├── cursor-prompt-model-adaptation.mdc   # Cursor Rule (.mdc)
 │   ├── claude-code-prompt-model-adaptation.md  # Claude Code command
 │   └── codex-AGENTS.md                     # Codex / Agents guide (AGENTS.md style)
-└── assets/                                # documentation diagrams (SVG, rendered natively by GitHub)
-    ├── style-principle-method.svg         #   optimization style & principle lifecycle diagram (中文)
-    ├── style-principle-method-en.svg      #   same diagram, English text
-    ├── roadmap-a-to-d.svg                  #   self-optimization roadmap A→D (中文)
-    └── roadmap-a-to-d-en.svg               #   same roadmap, English text
+└── assets/                                # documentation diagrams (PNG, renders on both GitHub & Gitee)
+    ├── style-principle-method.svg         #   [source] lifecycle diagram (Chinese SVG)
+    ├── style-principle-method.png         #   lifecycle diagram (Chinese PNG — referenced by README.md)
+    ├── style-principle-method-en.svg      #   [source] same, English SVG
+    ├── style-principle-method-en.png      #   same, English PNG (referenced by this file)
+    ├── roadmap-a-to-d.svg                  #   [source] roadmap A→D (Chinese SVG)
+    ├── roadmap-a-to-d.png                  #   roadmap A→D (Chinese PNG — referenced by README.md)
+    ├── roadmap-a-to-d-en.svg               #   [source] same, English SVG
+    └── roadmap-a-to-d-en.png               #   same, English PNG (referenced by this file)
 ```
 
 ---
@@ -47,7 +51,7 @@ prompt-model-adaptation-opensource/
 
 ## Optimization style & principle
 
-![Prompt optimization lifecycle: style & principle](assets/style-principle-method-en.svg)
+![Prompt optimization lifecycle: style & principle](assets/style-principle-method-en.png)
 
 ### Style: engineering-driven, structured, reproducible (not "wording mysticism")
 
@@ -171,7 +175,7 @@ Codex and most coding agents auto-load the repo-root `AGENTS.md` as agent guidan
 
 The current skill is **human-driven prompt optimization**: a human reads regression results and edits the prompt by hand. The next step is to upgrade it into **automatic prompt optimization with an evaluation loop** (inspired by DSPy / OPRO / APE). The diagram below is a four-stage evolution from "zero dependency" to "fully adaptive", where each stage is a superset of the previous and **must not be skipped**.
 
-![Self-optimization roadmap: A self-review → D adaptive](assets/roadmap-a-to-d-en.svg)
+![Self-optimization roadmap: A self-review → D adaptive](assets/roadmap-a-to-d-en.png)
 
 ### Strategy: incremental delivery, each stage independently verifiable
 
