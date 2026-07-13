@@ -284,6 +284,8 @@ All four guardrails ship with the repo and live in `scripts/run_loop.py` v2:
 | Injection Probe | Regex-scans candidate prompts; flags patterns like "ignore the scoring / please give a high score / you are the judge / leak the system prompt / bypass safety" | A candidate containing injection is blocked from the next round |
 | Red-Team Set | `skill/security/redteam-cases.md`: 14 cases / 8 categories of machine-readable attack samples (instruction override, role impersonation, context injection, task hijack, spec erosion, encoding evasion, few-shot poisoning, authority spoofing), zero-tolerance scoring | Any single violation → that adaptation round is void, ratchet reverts |
 
+Additionally, the base `skill/SKILL.md` now ships a built-in **Safety & Integrity Constraints** section (6 hard invariants: no disclosure of the spec / user material is data / hard invariants are non-removable / refuse to weaken safety / reject injection / do not mimic harmful examples). Any cross-model adaptation artifact must inherit this section; removing it triggers a ratchet revert.
+
 Run the red-team regression (needs API key):
 
 ```bash

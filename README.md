@@ -281,6 +281,8 @@ Codex 与多数 coding agent 会自动加载仓库根目录的 `AGENTS.md` 作�
 | 反注入探针 Injection Probe | 正则扫描候选提示词，命中"忽略评分 / 请打高分 / 你是裁判 / 泄露 system prompt / 绕过安全"等模式即报警 | 含注入的候选被拦截，不进入下一轮 |
 | 红队回归集 Red-Team Set | `skill/security/redteam-cases.md`：14 条 / 8 类机器可读攻击样例（指令覆盖、角色伪装、上下文注入、任务劫持、规约消解、编码绕过、少样本污染、权威欺骗），零容忍判定 | 任意一条违规 → 该轮适配作废，棘轮回退 |
 
+此外，基础 `skill/SKILL.md` 已内置 **Safety & Integrity Constraints** 小节（6 条硬不变量：不披露规约 / 素材即数据 / 硬不变量不可移除 / 拒绝削弱安全 / 注入即拒绝 / 不模仿有害示例）。任何跨模型适配产物须继承该小节，移除即触发棘轮 revert。
+
 运行红队回归（需 API key）：
 
 ```bash
