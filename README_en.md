@@ -340,6 +340,16 @@ Merge rule (the hard invariant among hard invariants): a target artifact may be 
 
 > Honest boundary: local `--multi` is **sequential orchestration**; true concurrency comes from fanning out WorkBuddy sub-agents (one per target — see the methodology doc §6). **Without a real API**, this phase ships only the "workspace skeleton + methodology + red-team gate logic wired up" scaffold; real cross-model adaptation (different failure modes per model → different directed fixes) requires configuring `OPENAI_API_KEY` first. The red-team gate proves "the artifact did not weaken safety", not "absolutely safe on the real model".
 
+### Zero-dependency verification: simulation run (proves the scaffold runs)
+
+You can verify the full `--multi` orchestration logic without a real API — `scripts/simulate_run.py` replaces the model call with a stub function (no network, no `openai` SDK dependency) but **reuses the real `run_multi_target` eval / optimization / red-team gate / ratchet / artifact-writing logic**. Pre-generated example artifacts live in `skill/adaptations_sim/` (`gemini/`, `claude/`, `deepseek/`, each with `adaptation_manifest.json` and `SKILL.md`; `multi_summary.json` aggregates), all watermarked "simulated · not a real adaptation".
+
+```bash
+python scripts/simulate_run.py --targets gemini claude deepseek --rounds 3
+```
+
+> Honest boundary: simulated artifacts are **stub-fabricated** — they only prove the scaffold and artifact structure are correct, **not** the adaptation quality of any real model. Real adaptation still requires configuring `OPENAI_API_KEY` and running `run_loop.py --multi` (above).
+
 ## License & contributing
 
 - This repo is open-sourced under the MIT license; see the root `LICENSE` file. Free use, modification, and distribution are permitted — please retain copyright and license notices.

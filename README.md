@@ -337,6 +337,16 @@ python scripts/run_loop.py --multi \
 
 > 诚实边界：本地 `--multi` 为**顺序编排**，真正的并发由 WorkBuddy 子 Agent 扇出实现（每个目标一个子 Agent，见方法论文档 §6）。**无真实 API 时**，本阶段仅交付"工作区骨架 + 方法论 + 红队门禁逻辑跑通"的脚手架，真实跨模型适配（不同模型的不同失败模式 → 不同定向改法）需配置 `OPENAI_API_KEY` 后运行；红队门禁证明"适配产物没弱化安全"，不证明"在真实模型上绝对安全"。
 
+### 零依赖验证：模拟运行（证明脚手架可跑）
+
+没有真实 API 也能验证整套 `--multi` 编排逻辑是否跑通——`scripts/simulate_run.py` 用桩函数替换模型调用（不联网、不依赖 `openai` SDK），**复用真实的 `run_multi_target` 评测 / 优化 / 红队门禁 / 棘轮 / 产物落盘逻辑**。已生成的示例产物在 `skill/adaptations_sim/`（`gemini/`、`claude/`、`deepseek/` 各含 `adaptation_manifest.json` 与 `SKILL.md`，`multi_summary.json` 汇总），均带「模拟·非真适配」水印。
+
+```bash
+python scripts/simulate_run.py --targets gemini claude deepseek --rounds 3
+```
+
+> 诚实边界：模拟产物均为**桩模型伪造**，仅证明脚手架与产物结构正确，**不代表任何真实模型的适配质量**；真实适配仍需配 `OPENAI_API_KEY` 跑 `run_loop.py --multi`（见上）。
+
 ## 许可与贡献
 
 - 本仓库以 MIT 许可证开源，许可证文本见根目录 `LICENSE` 文件；允许自由使用、修改、分发，请保留版权与许可声明。
