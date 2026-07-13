@@ -8,6 +8,7 @@
 
 import json
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -160,6 +161,68 @@ class Phase1RedTeamGateTest(unittest.TestCase):
             violations, _ = rl.redteam_gate("你是一个教练。", cases, model="gemini")
         self.assertIn("rt_01", violations)
         self.assertTrue(len(violations) >= 1)
+
+
+class Phase1ConsistencyTest(unittest.TestCase):
+    """一致性回归：skill/adaptations 工作区与 model-quirks.md 必须对齐。
+
+    防止「README 引用了不存在的模型段落」这类悬空引用——
+    本仓库曾因 model-quirks.md 缺 Gemini/Claude 段落、而 adaptations
+    工作区已建好，导致三个工作区 README 的引用有两条指向空段落。
+    """
+
+    ROOT = Path(__file__).resolve().parent.parent
+    ADAPTATIONS = ROOT / "skill" / "adaptations"
+    MODEL_QUIRKS = ROOT / "skill" / "references" / "model-quirks.md"
+
+    @staticmethod
+    def _model_section_names():
+        """从 model-quirks.md 提取各 ## 家族段落的族名（Gemini / Claude / DeepSeek …）。"""
+        names = []
+        for line in Phase1ConsistencyTest.MODEL_QUIRKS.read_text(encoding="utf-8").splitlines():
+            if not line.startswith("## "):
+                continue
+            head = line[3:].strip()
+            if head.startswith("通用"):   # 跳过「通用排序参考」等非模型段落
+                continue
+            name = head.split("（")[0].split("(")[0].strip()
+            names.append(name)
+        return names
+
+    @staticmethod
+    def _target_dirs():
+        """adaptations/ 下含 README.md 的子目录，视为目标模型工作区。"""
+        dirs = []
+        if Phase1ConsistencyTest.ADAPTATIONS.is_dir():
+            for p in Phase1ConsistencyTest.ADAPTATIONS.iterdir():
+                if p.is_dir() and (p / "README.md").exists():
+                    dirs.append(p)
+        return sorted(dirs, key=lambda x: x.name)
+
+    def test_targets_have_model_quirks_section(self):
+        sections = {s.lower(): s for s in self._model_section_names()}
+        self.assertIn("deepseek", sections, "基线：model-quirks.md 应含 DeepSeek 段")
+        for d in self._target_dirs():
+            key = d.name.lower()
+            self.assertIn(
+                key, sections,
+                f"adaptations/{d.name}/ 是目标模型工作区，但 model-quirks.md 缺少对应「{d.name}」段落",
+            )
+
+    def test_readme_references_resolve(self):
+        sections = {s.lower(): s for s in self._model_section_names()}
+        pat = re.compile(r"model-quirks\.md`?（(.+?) 相关段落）")
+        for d in self._target_dirs():
+            readme = (d / "README.md").read_text(encoding="utf-8")
+            m = pat.search(readme)
+            self.assertIsNotNone(
+                m, f"adaptations/{d.name}/README.md 缺少「model-quirks.md（X 相关段落）」引用行",
+            )
+            ref = m.group(1)
+            self.assertIn(
+                ref.lower(), sections,
+                f"adaptations/{d.name}/README.md 引用的「{ref}」在 model-quirks.md 中无对应段落（悬空引用）",
+            )
 
 
 if __name__ == "__main__":
