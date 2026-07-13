@@ -33,6 +33,10 @@ prompt-model-adaptation-opensource/
 │       ├── eval-spec.md                  #   machine-readable eval spec for the 4 regression cases (used by A→D loop)
 │       ├── optimizer-meta-prompt.md      #   prompt-optimizer meta-prompt (drives the self-optimization loop)
 │       ├── demo-a-tier.md                #   Stage-A self-review live demo (0/4 → 4/4 record)
+│       ├── demo-deepseek-adaptation.md   #   DeepSeek 5-step adaptation demo (Phase 1 example set)
+│       ├── demo-gemini-adaptation.md     #   Gemini 5-step adaptation demo (Phase 1 example set)
+│       ├── demo-claude-adaptation.md     #   Claude 5-step adaptation demo (Phase 1 example set)
+│       ├── running-real-adaptation.md    #   Real-API adaptation runbook (set .env / run --multi / read manifest / recalibrate)
 │       ├── tier-tests/                   #   in-WorkBuddy test artifacts per tier (records + reproduction SOP)
 │       │   ├── b_tier_test_record.md     #   Stage-B record (1/4→4/4) + pitfalls
 │       │   ├── b_tier_harness.md         #   Stage-B reproduction SOP
@@ -317,6 +321,8 @@ Deliverables (all ship with the repo):
 | Artifact | What it is |
 |---|---|
 | `skill/references/cross-model-adaptation-methodology.md` | Adaptation methodology: 5-step flow, A→D usage, failure-type→directed-fix map, red-team gate, ratchet merge, sub-agent concurrency architecture |
+| `skill/references/demo-deepseek-adaptation.md`, `demo-gemini-adaptation.md`, `demo-claude-adaptation.md` | Three-model 5-step adaptation example set: family quirks → directed fixes; experience-based prediction, not real-run scores, needs `--multi` calibration |
+| `skill/references/running-real-adaptation.md` | Real-API adaptation runbook: set `.env`, key architecture limits, read manifest, interpret red-team gate, recalibration loop |
 | `skill/adaptations/` | Multi-target isolated workspace (gemini / claude / deepseek, each isolated), with `adaptation_manifest.json` contract |
 | `scripts/run_loop.py --multi` | Multi-target orchestrator: runs the loop + red-team gate in an isolated workspace per target, emits a manifest and `multi_summary.json` |
 
