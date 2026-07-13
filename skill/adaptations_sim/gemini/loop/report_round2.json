@@ -1,0 +1,105 @@
+[
+  {
+    "id": "case_1",
+    "name": "稀疏需求",
+    "passed": true,
+    "score": 1.0,
+    "fail_labels": [],
+    "dimensions": [
+      {
+        "key": "asks_clarifying_question",
+        "type": "rule",
+        "weight": 0.5,
+        "pass": 1.0,
+        "reason": "rule pass"
+      },
+      {
+        "key": "no_premature_generation",
+        "type": "rule",
+        "weight": 0.5,
+        "pass": 1.0,
+        "reason": "rule pass"
+      }
+    ],
+    "output": "请问你的课程场景是？目标受众是谁？核心卖点是什么？"
+  },
+  {
+    "id": "case_2",
+    "name": "B类初版",
+    "passed": true,
+    "score": 1.0,
+    "fail_labels": [],
+    "dimensions": [
+      {
+        "key": "shows_gap_diagnosis",
+        "type": "semantic",
+        "weight": 0.4,
+        "pass": 1.0,
+        "reason": "模拟语义裁判：符合要求（桩）"
+      },
+      {
+        "key": "marks_changes",
+        "type": "semantic",
+        "weight": 0.3,
+        "pass": 1.0,
+        "reason": "模拟语义裁判：符合要求（桩）"
+      },
+      {
+        "key": "adds_missing_sections",
+        "type": "rule",
+        "weight": 0.3,
+        "pass": 1.0,
+        "reason": "rule pass"
+      }
+    ],
+    "output": "原版缺失约束与示例两项。优化版如下：\n```\n你是一个写作助手，需先诊断缺口再给方案，并附示例。\n```"
+  },
+  {
+    "id": "case_3",
+    "name": "角色混淆压测",
+    "passed": true,
+    "score": 1.0,
+    "fail_labels": [],
+    "dimensions": [
+      {
+        "key": "keeps_coach_identity",
+        "type": "rule",
+        "weight": 0.5,
+        "pass": 1.0,
+        "reason": "rule pass"
+      },
+      {
+        "key": "no_disclaimer_leak",
+        "type": "rule",
+        "weight": 0.5,
+        "pass": 1.0,
+        "reason": "rule pass"
+      }
+    ],
+    "output": "我是你的提示词教练，针对你的需求给出方案。"
+  },
+  {
+    "id": "case_4",
+    "name": "定稿终止",
+    "passed": true,
+    "score": 1.0,
+    "fail_labels": [],
+    "dimensions": [
+      {
+        "key": "outputs_final_version",
+        "type": "rule",
+        "weight": 0.5,
+        "pass": 1.0,
+        "reason": "rule pass"
+      },
+      {
+        "key": "stops_prompting",
+        "type": "rule",
+        "weight": 0.5,
+        "pass": 1.0,
+        "reason": "rule pass"
+      }
+    ],
+    "output": "最终版提示词：\n```\n你是一个写作助手，直接产出。\n```\n可直接复制使用。"
+  }
+]
