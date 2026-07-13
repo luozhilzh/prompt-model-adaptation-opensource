@@ -81,9 +81,33 @@ except ImportError:
 load_dotenv()  # 读取 .env
 
 API_KEY = os.getenv("OPENAI_API_KEY", "")
-BASE_URL = os.getenv("BASE_URL", "https://api.open.com/v1")
+BASE_URL = os.getenv("BASE_URL", "https://api.openai.com/v1")
 MODEL = os.getenv("MODEL", "gpt-4o")
 JUDGE_MODEL = os.getenv("JUDGE_MODEL", "") or MODEL  # 留空则同模型自评
+
+
+# ----------------------------------------------------------------------------
+# 1.1 多目标工具：目标名→安全目录名、按目标解析 base_url
+# ----------------------------------------------------------------------------
+def sanitize_target_dir(target: str) -> str:
+    """把目标模型名转成安全的目录名：把路径分隔符等非法字符替换为下划线。
+
+    `--targets google/gemini-2.5-pro` 不会生成嵌套目录 google/gemini-2.5-pro/，
+    而是平级的 google_gemini-2.5-pro/（API 的 model 字段仍用原始值）。
+    """
+    return re.sub(r"[/\\:]+", "_", target.strip()).strip("_")
+
+
+def base_url_for_target(target: str) -> str:
+    """解析某目标模型对应的 OpenAI 兼容 base_url。
+
+    优先级：环境变量 OPENAI_BASE_URL_<TARGET 大写，非字母数字转义为 _>
+            → 全局 BASE_URL。
+    例：OPENAI_BASE_URL_GEMINI=https://... 仅对 gemini 目标生效，
+        OPENAI_BASE_URL_GOOGLE_GEMINI_2_5_PRO 对 google/gemini-2.5-pro 生效。
+    """
+    env_key = "OPENAI_BASE_URL_" + re.sub(r"[^A-Z0-9]", "_", target.upper())
+    return os.getenv(env_key, BASE_URL)
 
 # 模块级开关（main 内赋值，供评分函数读取）
 REDTEAM_MODE = False
@@ -276,24 +300,30 @@ def classify_failures(report: list) -> list:
 # ----------------------------------------------------------------------------
 # 3. 模型调用（执行器）
 # ----------------------------------------------------------------------------
-_client = None  # 延迟构造，便于无 API 环境下导入与测试
+_client_cache = {}  # base_url -> OpenAI client，按网关缓存，支持多目标不同 endpoint
 
 
-def _get_client():
-    """懒构造 OpenAI 客户端（首次调用 call_model 时）。导入期不联网、不退出。"""
-    global _client
-    if _client is None:
-        if not API_KEY:
-            sys.exit("✗ 未找到 OPENAI_API_KEY。请复制 .env.example 为 .env 并填写。")
-        if OpenAI is None:
-            sys.exit("✗ 未安装 openai SDK。请运行: pip install openai python-dotenv")
-        _client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
-    return _client
+def _get_client(base_url: str | None = None):
+    """懒构造 OpenAI 客户端（首次调用 call_model 时）。导入期不联网、不退出。
+    按 base_url 缓存，使多目标各自网关可并存。"""
+    bu = base_url or BASE_URL
+    if bu in _client_cache:
+        return _client_cache[bu]
+    if not API_KEY:
+        sys.exit("✗ 未找到 OPENAI_API_KEY。请复制 .env.example 为 .env 并填写。")
+    if OpenAI is None:
+        sys.exit("✗ 未安装 openai SDK。请运行: pip install openai python-dotenv")
+    client = OpenAI(api_key=API_KEY, base_url=bu)
+    _client_cache[bu] = client
+    return client
 
 
-def call_model(system: str, user: str, model: str = MODEL, temperature: float = 0.4) -> str:
-    """真实调用目标模型。system=候选提示词，user=用例输入。返回模型输出。"""
-    resp = _get_client().chat.completions.create(
+def call_model(system: str, user: str, model: str = MODEL,
+               temperature: float = 0.4, base_url: str | None = None) -> str:
+    """真实调用目标模型。system=候选提示词，user=用例输入。返回模型输出。
+    base_url 为 None 时用全局 BASE_URL；多目标模式下传入 base_url_for_target(target)
+    以切到该模型的专属网关。"""
+    resp = _get_client(base_url).chat.completions.create(
         model=model,
         temperature=temperature,
         messages=[
@@ -375,8 +405,9 @@ def semantic_score(dim_key: str, check: str, text: str, category: str = "", expe
 # ----------------------------------------------------------------------------
 # 6. 单用例评测
 # ----------------------------------------------------------------------------
-def eval_case(case: dict, candidate: str, model: str = MODEL) -> dict:
-    output = call_model(candidate, case["input"], model=model)
+def eval_case(case: dict, candidate: str, model: str = MODEL,
+              base_url: str | None = None) -> dict:
+    output = call_model(candidate, case["input"], model=model, base_url=base_url)
     dims = case["scoring"]["dimensions"]
     results = []
     score_sum = 0.0
@@ -450,7 +481,8 @@ def _classify_block(failures: list) -> str:
 
 
 def optimize(candidate: str, report: list, d_mode: bool = False,
-             failures: list | None = None, safeguard: bool = True) -> tuple:
+             failures: list | None = None, safeguard: bool = True,
+             base_url: str | None = None) -> tuple:
     report_txt = "\n".join(
         f"- {r['id']} {r['name']}: {'通过' if r['passed'] else '失败'} "
         f"(score={r['score']}, 失败标签={r['fail_labels'] or '无'})"
@@ -462,7 +494,7 @@ def optimize(candidate: str, report: list, d_mode: bool = False,
     system = _OPTIMIZER_SYSTEM_D if d_mode else _OPTIMIZER_SYSTEM
     if safeguard:
         system = system + "\n\n" + SPEC_FREEZE_CONSTRAINT
-    raw = call_model(system, user, model=JUDGE_MODEL, temperature=0.4)
+    raw = call_model(system, user, model=JUDGE_MODEL, temperature=0.4, base_url=base_url)
     improved = _extract_code_block(raw)
     return improved, raw
 
@@ -490,7 +522,7 @@ def generate_checklist(report: list, path: str) -> None:
 # ----------------------------------------------------------------------------
 # 8. 单目标主循环（run_single，被 main 单目标模式与 run_multi_target 复用）
 # ----------------------------------------------------------------------------
-def run_single(candidate, cases, args, out_dir, model, judge_model):
+def run_single(candidate, cases, args, out_dir, model, judge_model, base_url=None):
     """对单个目标模型跑自优化闭环（B/C/D + Phase 0 护栏）。返回最优结果与历史。"""
     safeguard = not args.no_safeguard
     out_dir = Path(out_dir)
@@ -524,7 +556,7 @@ def run_single(candidate, cases, args, out_dir, model, judge_model):
                 print(f"⚠ 反注入探针命中：{hits} → 阻断本轮优化（不前进，避免污染）。")
                 blocked = True
 
-        report = [eval_case(c, candidate, model=model) for c in cases]
+        report = [eval_case(c, candidate, model=model, base_url=base_url) for c in cases]
         n_pass = sum(1 for r in report if r["passed"])
         round_score = n_pass / len(report)
         print(f"通过率: {n_pass}/{len(report)}  分数: {round_score:.2f}")
@@ -567,7 +599,7 @@ def run_single(candidate, cases, args, out_dir, model, judge_model):
             break
 
         improved, _ = optimize(candidate, report, d_mode=args.d_mode,
-                               failures=failures, safeguard=safeguard)
+                               failures=failures, safeguard=safeguard, base_url=base_url)
         if not improved or improved == candidate:
             print("⚠ 优化器未产出有效改动，停止以避免空转。")
             break
@@ -582,7 +614,7 @@ def run_single(candidate, cases, args, out_dir, model, judge_model):
     }
 
 
-def redteam_gate(skill_text, redteam_cases, model=None):
+def redteam_gate(skill_text, redteam_cases, model=None, base_url=None):
     """红队门禁：对候选 skill 逐条跑红队攻击，返回 (violations, details)。
     violations 非空即存在违规，该轮适配作废（零容忍）。"""
     global REDTEAM_MODE
@@ -591,7 +623,7 @@ def redteam_gate(skill_text, redteam_cases, model=None):
     violations, details = [], []
     try:
         for case in redteam_cases:
-            output = call_model(skill_text, case["input"], model=model or MODEL)
+            output = call_model(skill_text, case["input"], model=model or MODEL, base_url=base_url)
             dim = case["scoring"]["dimensions"][0]
             s, reason = semantic_score(dim["key"], dim["check"], output,
                                        category=case.get("category", ""),
@@ -621,24 +653,27 @@ def run_multi_target(args):
     summary = {}
 
     for target in args.targets:
-        tdir = ws / target
+        bu = base_url_for_target(target)
+        tdir = ws / sanitize_target_dir(target)
         tdir.mkdir(parents=True, exist_ok=True)
         cand_path = tdir / "SKILL.md"
         cand_path.write_text(base_skill, encoding="utf-8")  # 起始候选 = 基础版
         loop_dir = tdir / "loop"
-        print(f"\n##### 目标模型：{target} #####")
+        print(f"\n##### 目标模型：{target}（base_url={bu}）#####")
         res = run_single(base_skill, DEFAULT_CASES, args, loop_dir,
-                         model=target, judge_model=JUDGE_MODEL)
+                         model=target, judge_model=JUDGE_MODEL, base_url=bu)
         best = res["best_candidate"]
 
         violations, details = [], []
         if redteam_cases and safeguard:
-            violations, details = redteam_gate(best, redteam_cases, model=target)
+            violations, details = redteam_gate(best, redteam_cases, model=target, base_url=bu)
         gate_pass = (len(violations) == 0)
 
         cand_path.write_text(best, encoding="utf-8")  # 落盘最优候选
         manifest = {
             "target": target,
+            "target_dir": sanitize_target_dir(target),
+            "base_url_resolved": bu,
             "best_round": res["best_round"],
             "best_score": res["best_score"],
             "redteam_violations": violations,

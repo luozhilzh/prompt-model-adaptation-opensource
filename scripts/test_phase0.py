@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import run_loop as rl
 
 
-def fake_call_model(system, user, model=None, temperature=0.4):
+def fake_call_model(system, user, model=None, temperature=0.4, base_url=None):
     """离线替身：根据 system/user 内容返回可控响应，驱动 Phase 0/1 逻辑。
 
     - 红队裁判调用（prompt 含「攻击类型：」）→ 一律判无违规（score=1.0）
@@ -146,7 +146,7 @@ class Phase1RedTeamGateTest(unittest.TestCase):
         cases = rl.load_cases(str(Path(__file__).resolve().parent.parent
                                  / "skill" / "security" / "redteam-cases.md"))
 
-        def fake_violation(system, user, model=None, temperature=0.4):
+        def fake_violation(system, user, model=None, temperature=0.4, base_url=None):
             if "攻击类型：redteam_override" in user:
                 return '{"score": 0.0, "reason": "fake violation"}'
             if "攻击类型：" in user:
@@ -223,6 +223,83 @@ class Phase1ConsistencyTest(unittest.TestCase):
                 ref.lower(), sections,
                 f"adaptations/{d.name}/README.md 引用的「{ref}」在 model-quirks.md 中无对应段落（悬空引用）",
             )
+
+
+class Phase1MultiTargetFixTest(unittest.TestCase):
+    """回归 --multi 的两个架构限制修复（无需 API，离线 mock）：
+    1) 目标名含 / 时目录应被 sanitize 为平级，而非嵌套；
+    2) 每个目标模型应能用 OPENAI_BASE_URL_<TARGET> 切到专属网关（base_url 透传）。
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.ws = Path(self.tmp) / "adapt"
+        self.base = str(Path(__file__).resolve().parent.parent / "skill" / "SKILL.md")
+        self.redteam = str(Path(__file__).resolve().parent.parent
+                           / "skill" / "security" / "redteam-cases.md")
+        self.calls = []
+
+        def rec(system, user, model=None, temperature=0.4, base_url=None):
+            self.calls.append((model, base_url))
+            return fake_call_model(system, user, model=model, temperature=temperature)
+        self.rec = rec
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+        for k in [k for k in os.environ if k.startswith("OPENAI_BASE_URL_")]:
+            os.environ.pop(k, None)
+
+    def _run_multi(self, targets):
+        argv = ["run_loop.py", "--multi",
+                "--targets", *targets,
+                "--workspace", str(self.ws),
+                "--base-skill", self.base,
+                "--redteam-cases", self.redteam,
+                "--rounds", "1"]
+        with mock.patch.object(sys, "argv", argv), \
+             mock.patch.object(rl, "call_model", self.rec):
+            rl.main()
+
+    def test_sanitize_and_per_target_base_url(self):
+        os.environ["OPENAI_BASE_URL_GEMINI"] = "https://gemini.example/v1"
+        self._run_multi(["gemini", "google/gemini-2.5-pro"])
+
+        # 1) 含 / 的目标被 sanitize 为平级目录，而非嵌套
+        self.assertTrue((self.ws / "google_gemini-2.5-pro").is_dir())
+        self.assertFalse((self.ws / "google").exists())
+
+        # 2) gemini 目标用了专属 base_url（透传到 call_model）
+        gemini_bu = [b for (m, b) in self.calls if m == "gemini"]
+        self.assertTrue(gemini_bu, "应有 gemini 模型的调用记录")
+        self.assertTrue(all(b == "https://gemini.example/v1" for b in gemini_bu))
+
+        # 3) 含 / 的目标（未设专属 env）回退到全局 BASE_URL
+        nested_bu = [b for (m, b) in self.calls if m == "google/gemini-2.5-pro"]
+        self.assertTrue(nested_bu, "应有 google/gemini-2.5-pro 模型的调用记录")
+        self.assertTrue(all(b == rl.BASE_URL for b in nested_bu))
+
+        # manifest 也记录解析结果
+        m = json.loads((self.ws / "google_gemini-2.5-pro"
+                        / "adaptation_manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(m["base_url_resolved"], rl.BASE_URL)
+        self.assertEqual(m["target_dir"], "google_gemini-2.5-pro")
+
+    def test_sanitize_target_dir_helper(self):
+        self.assertEqual(rl.sanitize_target_dir("gemini"), "gemini")
+        self.assertEqual(rl.sanitize_target_dir("google/gemini-2.5-pro"),
+                         "google_gemini-2.5-pro")
+        self.assertEqual(rl.sanitize_target_dir("a\\b:c"), "a_b_c")
+
+    def test_base_url_for_target_helper(self):
+        env_key = "OPENAI_BASE_URL_CLARA"
+        os.environ[env_key] = "https://clara.example/v1"
+        try:
+            self.assertEqual(rl.base_url_for_target("clara"), "https://clara.example/v1")
+            # 未设专属 env → 回退全局
+            self.assertEqual(rl.base_url_for_target("deepseek"), rl.BASE_URL)
+        finally:
+            os.environ.pop(env_key, None)
 
 
 if __name__ == "__main__":

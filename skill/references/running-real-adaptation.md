@@ -35,7 +35,7 @@ cp .env.example .env
 | 字段 | 作用 | 说明 |
 |---|---|---|
 | `OPENAI_API_KEY` | API key | 取决于 `BASE_URL` 用哪家网关 |
-| `BASE_URL` | OpenAI 兼容基地址 | **全局只此一个**（见 §3 限制） |
+| `BASE_URL` | OpenAI 兼容基地址（全局默认） | 可用 `OPENAI_BASE_URL_<TARGET>` 按目标覆盖（见 §3） |
 | `MODEL` | 单目标默认模型 | `--multi` 模式下被 `--targets` 覆盖 |
 | `JUDGE_MODEL` | 独立裁判模型 | C 档 / 红队裁判用；留空 = 同 `MODEL` 自评 |
 
@@ -43,12 +43,16 @@ cp .env.example .env
 
 ---
 
-## 3. ⚠️ 关键架构限制（必读，避免踩坑）
+## 3. 多目标网关与目录约定（已修复，原「关键架构限制」已解决）
 
-`run_loop.py` 的 `BASE_URL` / `API_KEY` 是**全局单一变量**，所有模型调用共用同一网关。由此带来两条真实约束：
+`run_loop.py` 现已支持**每目标独立网关**与**目录名自动 sanitize**，无需 patch 脚本：
 
-1. **多家族不能「一次命令自动切网关」**——脚本不会按 target 切换 `BASE_URL`。
-2. **`--targets` 的值会同时用作两处**：① 传给 API 的 `model` 字段；② 作为产物目录名（`skill/adaptations/<target>/`）。若填含 `/` 的完整模型 ID（如 `google/gemini-2.5-pro`），目录会变成嵌套 `skill/adaptations/google/gemini-2.5-pro/`，破坏「gemini / claude / deepseek 三个平级子目录」约定。
+1. **每目标 base_url**：默认用全局 `BASE_URL`；若存在环境变量 `OPENAI_BASE_URL_<TARGET 大写，非字母数字转义为 _>`，则该目标模型调用改用此网关。
+   - 例：`OPENAI_BASE_URL_GEMINI=https://generativelanguage.googleapis.com/v1beta/openai/` 仅对 `gemini` 目标生效；`OPENAI_BASE_URL_GOOGLE_GEMINI_2_5_PRO` 对 `google/gemini-2.5-pro` 生效。
+2. **目录名自动 sanitize**：`--targets` 的值仍原样传给 API 的 `model` 字段，但作为产物目录名时，`/ \ :` 会被替换为 `_`，保证平级。
+   - 例：`google/gemini-2.5-pro` → 目录 `skill/adaptations/google_gemini-2.5-pro/`（不再嵌套）。manifest 中 `target_dir` / `base_url_resolved` 记录实际取值。
+
+> 注：`API_KEY` 仍是全局单一（一个 key 对应你配置的网关）。若多目标需要不同 key，仍建议用「分家族单网关」跑法（见下）；若走 OpenRouter 这类单 key 多模型网关，可直接用每目标 base_url 切到不同前缀。
 
 ### 推荐跑法：分家族单网关（零改脚本、目录干净）
 
@@ -92,7 +96,7 @@ python scripts/run_loop.py --multi \
     --workspace skill/adaptations --rounds 3
 ```
 
-注意：产物目录会嵌套（如 `skill/adaptations/google/gemini-2.5-pro/`）。若想保持平级，可 patch `run_multi_target`：用 `target.replace('/', '_')` 作目录名（如 `google__gemini-2.5-pro`）。**这是脚本改进项，不在本手册默认路径内。**
+注意：产物目录现在**自动平级**（如 `skill/adaptations/google_gemini-2.5-pro/`），不再嵌套；如需不同网关，可对每个目标设 `OPENAI_BASE_URL_<TARGET>`（见 §3）。OpenRouter 单 key 多模型场景下，`API_KEY` 共用、各 target 的 `model` 字段区分模型即可。
 
 ---
 
