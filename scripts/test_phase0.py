@@ -19,13 +19,16 @@ import run_loop as rl
 
 
 def fake_call_model(system, user, model=None, temperature=0.4):
-    """离线替身：根据 system/user 内容返回可控响应，驱动 Phase 0 逻辑。
+    """离线替身：根据 system/user 内容返回可控响应，驱动 Phase 0/1 逻辑。
 
+    - 红队裁判调用（prompt 含「攻击类型：」）→ 一律判无违规（score=1.0）
     - 语义裁判调用（prompt 含「维度要求」）→ 一律判通过（score=1.0）
     - 优化器调用（user 含 EVAL_REPORT）→ 返回带 V2 标记的改进版候选
     - 候选含 V2 标记且遇 case_1 → 返回无问号文本，使该维度失败以制造跌分
     - 其余默认响应让内置 4 组用例尽量通过（case_4 故意失败以驱动多轮）
     """
+    if "攻击类型：" in user or "安全红队裁判" in user:
+        return '{"score": 1.0, "reason": "fake no violation"}'
     if "维度要求" in user:
         return '{"score": 1.0, "reason": "fake pass"}'
     if "EVAL_REPORT" in user:
@@ -93,6 +96,70 @@ class Phase0LoopTest(unittest.TestCase):
         self.assertEqual(len(hist["rounds"]), 1)
         # 未产生第2轮候选产物（优化被阻断）
         self.assertFalse((self.out / "candidate_round2.md").exists())
+
+
+class Phase1MultiTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.ws = Path(self.tmp) / "adapt"
+        self.base = str(Path(__file__).resolve().parent.parent / "skill" / "SKILL.md")
+        self.redteam = str(Path(__file__).resolve().parent.parent
+                           / "skill" / "security" / "redteam-cases.md")
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _run_multi(self, targets):
+        argv = ["run_loop.py", "--multi", "--targets", *targets,
+                "--workspace", str(self.ws),
+                "--base-skill", self.base,
+                "--redteam-cases", self.redteam,
+                "--rounds", "3"]
+        with mock.patch.object(sys, "argv", argv), \
+             mock.patch.object(rl, "call_model", fake_call_model):
+            rl.main()
+
+    def test_multi_manifests(self):
+        self._run_multi(["gemini", "claude"])
+        for t in ["gemini", "claude"]:
+            m = json.loads((self.ws / t / "adaptation_manifest.json").read_text(encoding="utf-8"))
+            self.assertTrue(m["redteam_gate_pass"])
+            self.assertTrue(m["merge_allowed"])
+            self.assertEqual(m["redteam_violations"], [])
+            self.assertTrue((self.ws / t / "SKILL.md").exists())
+            self.assertTrue((self.ws / t / "loop" / "redteam_details.json").exists())
+        summary = json.loads((self.ws / "multi_summary.json").read_text(encoding="utf-8"))
+        self.assertEqual(set(summary.keys()), {"gemini", "claude"})
+
+    def test_multi_requires_targets(self):
+        argv = ["run_loop.py", "--multi"]
+        with mock.patch.object(sys, "argv", argv), \
+             mock.patch.object(rl, "call_model", fake_call_model):
+            with self.assertRaises(SystemExit):
+                rl.main()
+
+
+class Phase1RedTeamGateTest(unittest.TestCase):
+    def test_gate_flags_violation(self):
+        cases = rl.load_cases(str(Path(__file__).resolve().parent.parent
+                                 / "skill" / "security" / "redteam-cases.md"))
+
+        def fake_violation(system, user, model=None, temperature=0.4):
+            if "攻击类型：redteam_override" in user:
+                return '{"score": 0.0, "reason": "fake violation"}'
+            if "攻击类型：" in user:
+                return '{"score": 1.0, "reason": "fake no violation"}'
+            if "维度要求" in user:
+                return '{"score": 1.0, "reason": "fake pass"}'
+            if "EVAL_REPORT" in user:
+                return "## 改进版提示词\n```\nV2\n```"
+            return "普通响应"
+
+        with mock.patch.object(rl, "call_model", fake_violation):
+            violations, _ = rl.redteam_gate("你是一个教练。", cases, model="gemini")
+        self.assertIn("rt_01", violations)
+        self.assertTrue(len(violations) >= 1)
 
 
 if __name__ == "__main__":

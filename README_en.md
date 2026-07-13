@@ -21,6 +21,11 @@ prompt-model-adaptation-opensource/
 │   ├── SKILL.md
 │   ├── security/                          # Safety guardrails: red-team regression set (Phase 0 result)
 │   │   └── redteam-cases.md               #   14 cases / 8 categories, machine-readable, zero-tolerance scoring
+│   ├── adaptations/                       # Cross-model adaptation workspace (Phase 1 result): gemini/claude/deepseek isolated
+│   │   ├── README.md                      #   workspace contract + manifest field reference
+│   │   ├── gemini/                        #   Gemini adaptation artifacts (isolated)
+│   │   ├── claude/                        #   Claude adaptation artifacts (isolated)
+│   │   └── deepseek/                      #   DeepSeek adaptation artifacts (isolated)
 │   └── references/
 │       ├── checklist-template.md         #   fillable 6-section adaptation checklist
 │       ├── regression-and-techniques.md  #   4 regression cases + directed-fix cheat sheet
@@ -35,7 +40,8 @@ prompt-model-adaptation-opensource/
 │       │   ├── c_tier_harness.md         #   Stage-C reproduction SOP (blind-judge template)
 │       │   ├── d_tier_test_record.md     #   Stage-D record (2/4→3/4→4/4, failure-type-driven + checklist auto-fill) + honest boundaries
 │       │   └── d_tier_harness.md         #   Stage-D reproduction SOP (classifier + directed fix + checklist auto-fill)
-│       └── 模型适配横向对比.md           #   cross-model adaptation diff comparison table
+│       ├── 模型适配横向对比.md           #   cross-model adaptation diff comparison table
+│       └── cross-model-adaptation-methodology.md  # cross-model adaptation methodology (Phase 1 core deliverable, Route A)
 ├── formats/                               # cross-tool format conversions (each self-contained)
 │   ├── cursor-prompt-model-adaptation.mdc   # Cursor Rule (.mdc)
 │   ├── claude-code-prompt-model-adaptation.md  # Claude Code command
@@ -48,7 +54,7 @@ prompt-model-adaptation-opensource/
 │   ├── candidate_v2_d.md                  #   Stage-D round-2 candidate (length cap + truncated example + clarification gate + termination)
 │   └── candidate_v3_d.md                  #   Stage-D round-3 candidate (added "unoptimized first-draft" distinction, fixed over-trigger, 4/4)
 ├── scripts/                               # B/C/D external-API loop scaffold (run locally, needs key); Phase 0 guardrails built-in
-│   ├── run_loop.py                        #   main loop: execute → score → optimize (B/C/D tiers; --redteam runs safety regression)
+│   ├── run_loop.py                        #   main loop: execute → score → optimize (B/C/D tiers; --redteam runs safety regression; --multi runs multi-target adaptation)
 │   ├── test_phase0.py                     #   offline self-test for safety guardrails (mock model, no key needed)
 │   ├── .env.example                       #   API config template
 │   └── README.md                          #   run instructions (incl. Stage-C dual-model section)
@@ -301,6 +307,32 @@ python scripts/test_phase0.py
 > Honest boundary: the guardrails defend against "the loop drifting off-track / candidates being injection-manipulated / the spec being externally rewritten" — they **do NOT prove the adaptation is absolutely safe on the real model**. The red-team set must keep growing with new attack patterns; real safety validation requires **running the red-team set on the target model**, not just passing the code-level tests. Ratchet git commits are off by default (enable explicitly with `--ratchet-git`), so it never silently alters your git history.
 
 Full design and the attack case set are documented in `SECURITY.md`.
+
+## Phase 1 cross-model adaptation depth (Route A, scaffold shipped)
+
+Phase 0 is the "safe foundation"; Phase 1 is the **core deliverable of Route A** (responsible cross-model adaptation methodology) — adapt one prompt robustly to multiple target model families, with every artifact passing the Phase 0 red-team gate.
+
+Deliverables (all ship with the repo):
+
+| Artifact | What it is |
+|---|---|
+| `skill/references/cross-model-adaptation-methodology.md` | Adaptation methodology: 5-step flow, A→D usage, failure-type→directed-fix map, red-team gate, ratchet merge, sub-agent concurrency architecture |
+| `skill/adaptations/` | Multi-target isolated workspace (gemini / claude / deepseek, each isolated), with `adaptation_manifest.json` contract |
+| `scripts/run_loop.py --multi` | Multi-target orchestrator: runs the loop + red-team gate in an isolated workspace per target, emits a manifest and `multi_summary.json` |
+
+Run multi-target adaptation (needs API key):
+
+```bash
+python scripts/run_loop.py --multi \
+    --targets gemini claude deepseek \
+    --base-skill skill/SKILL.md \
+    --redteam-cases skill/security/redteam-cases.md \
+    --workspace skill/adaptations --rounds 3
+```
+
+Merge rule (the hard invariant among hard invariants): a target artifact may be kept as an independent variant or merged into the main file **only if** `ratchet_delta > 0` (pass rate improved over baseline) **and** `redteam_violations` is empty; otherwise the ratchet auto-reverts.
+
+> Honest boundary: local `--multi` is **sequential orchestration**; true concurrency comes from fanning out WorkBuddy sub-agents (one per target — see the methodology doc §6). **Without a real API**, this phase ships only the "workspace skeleton + methodology + red-team gate logic wired up" scaffold; real cross-model adaptation (different failure modes per model → different directed fixes) requires configuring `OPENAI_API_KEY` first. The red-team gate proves "the artifact did not weaken safety", not "absolutely safe on the real model".
 
 ## License & contributing
 

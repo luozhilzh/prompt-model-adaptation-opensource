@@ -21,6 +21,11 @@ prompt-model-adaptation-opensource/
 │   ├── SKILL.md
 │   ├── security/                          # 安全护栏：红队回归集（Phase 0 结果）
 │   │   └── redteam-cases.md               #   14 条 / 8 类机器可读攻击样例，零容忍判定
+│   ├── adaptations/                       # 跨模型适配工作区（Phase 1 结果）：gemini/claude/deepseek 隔离目录
+│   │   ├── README.md                      #   工作区契约 + manifest 字段说明
+│   │   ├── gemini/                        #   Gemini 适配产物（隔离）
+│   │   ├── claude/                        #   Claude 适配产物（隔离）
+│   │   └── deepseek/                      #   DeepSeek 适配产物（隔离）
 │   └── references/
 │       ├── checklist-template.md         #   可填写的 6 区块适配检查表
 │       ├── regression-and-techniques.md  #   4 组回归用例 + 定向改法速查
@@ -35,7 +40,8 @@ prompt-model-adaptation-opensource/
 │       │   ├── c_tier_harness.md         #   C 档复现 SOP（独立裁判模板）
 │       │   ├── d_tier_test_record.md     #   D 档实测记录（2/4→3/4→4/4，失败类型驱动+检查表自填）+ 诚实边界
 │       │   └── d_tier_harness.md         #   D 档复现 SOP（分类器+定向改法+检查表自填）
-│       └── 模型适配横向对比.md           #   多模型适配差异横向对比表
+│       ├── 模型适配横向对比.md           #   多模型适配差异横向对比表
+│       └── cross-model-adaptation-methodology.md  # 跨模型适配方法学（Phase 1 核心交付，路线 A）
 ├── formats/                               # 跨工具格式转换（各自独立可用）
 │   ├── cursor-prompt-model-adaptation.mdc   # Cursor Rule（.mdc）
 │   ├── claude-code-prompt-model-adaptation.md  # Claude Code 命令
@@ -48,7 +54,7 @@ prompt-model-adaptation-opensource/
 │   ├── candidate_v2_d.md                  #   D 档第 2 轮候选（限长+截断示例+澄清门+终止条件）
 │   └── candidate_v3_d.md                  #   D 档第 3 轮候选（加待优化初版类区分，修过触发，4/4）
 ├── scripts/                               # B/C/D 档外部 API 闭环脚手架（本地跑，需 key）；Phase 0 护栏内置
-│   ├── run_loop.py                        #   主循环：执行 → 评分 → 优化（B/C/D 档；--redteam 跑安全回归）
+│   ├── run_loop.py                        #   主循环：执行 → 评分 → 优化（B/C/D 档；--redteam 跑安全回归；--multi 多目标适配）
 │   ├── test_phase0.py                     #   安全护栏离线自检（mock 模型，无需 key）
 │   ├── .env.example                       #   API 配置模板
 │   └── README.md                          #   运行说明（含 C 档双模型节）
@@ -298,6 +304,32 @@ python scripts/test_phase0.py
 > 诚实边界：护栏防的是"循环自身跑偏 / 候选被注入操纵 / 规约被外改"，**不证明适配在真实模型上绝对安全**。红队集需随新攻击模式持续扩充；真实安全验证要在目标模型上**实跑红队集**，而非仅过代码层测试。棘轮 git 提交默认关闭（`--ratchet-git` 显式开启），不会自动改动你的 git 历史。
 
 护栏设计与攻击样例集完整说明见 `SECURITY.md`。
+
+## Phase 1 跨模型适配深度（路线 A，已搭脚手架）
+
+Phase 0 是"守住底线的地基"；Phase 1 是路线 A（负责任跨模型适配方法论）的**核心交付**——把一份提示词稳当适配到多个目标模型家族，且每版产物都必须过 Phase 0 红队门禁。
+
+交付物（均已随仓库发布）：
+
+| 产物 | 说明 |
+|---|---|
+| `skill/references/cross-model-adaptation-methodology.md` | 适配方法学：五步法、A→D 用法、失败类型→定向改法映射、红队门禁、棘轮合入、子 Agent 并发架构 |
+| `skill/adaptations/` | 多目标隔离工作区（gemini / claude / deepseek 各一目录，互不干扰），含 `adaptation_manifest.json` 契约 |
+| `scripts/run_loop.py --multi` | 多目标编排：对每个目标在隔离工作区跑闭环 + 红队门禁，产出 manifest 与 `multi_summary.json` |
+
+运行多目标适配（需 API key）：
+
+```bash
+python scripts/run_loop.py --multi \
+    --targets gemini claude deepseek \
+    --base-skill skill/SKILL.md \
+    --redteam-cases skill/security/redteam-cases.md \
+    --workspace skill/adaptations --rounds 3
+```
+
+合入规则（硬不变量中的硬不变量）：当且仅当 `ratchet_delta > 0`（相对基线通过率有提升）**且** `redteam_violations` 为空时，该目标适配产物才允许作为独立变体保留或合入主文件；否则棘轮自动 revert。
+
+> 诚实边界：本地 `--multi` 为**顺序编排**，真正的并发由 WorkBuddy 子 Agent 扇出实现（每个目标一个子 Agent，见方法论文档 §6）。**无真实 API 时**，本阶段仅交付"工作区骨架 + 方法论 + 红队门禁逻辑跑通"的脚手架，真实跨模型适配（不同模型的不同失败模式 → 不同定向改法）需配置 `OPENAI_API_KEY` 后运行；红队门禁证明"适配产物没弱化安全"，不证明"在真实模型上绝对安全"。
 
 ## 许可与贡献
 

@@ -193,6 +193,21 @@ def file_hash(path: str) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def load_cases(path: str) -> list:
+    """加载用例集（评测规约 / 红队集）。兼容纯 JSON 文件，也兼容内嵌 ```json 块的 .md
+    （如 skill/security/redteam-cases.md），避免文档型红队集无法直接 --cases 加载。"""
+    text = Path(path).read_text(encoding="utf-8")
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        # 兼容「内嵌 ```json 代码块」的 .md：要求 ```json 后紧跟换行，避免误匹配正文中
+        # 形如 ` ```json ` 的内联写法（如本文件说明文字里出现的）。
+        m = re.search(r"```json\s*\n(.*?)\n```", text, re.DOTALL)
+        if not m:
+            raise
+        return json.loads(m.group(1))
+
+
 def injection_probe(candidate: str) -> list:
     """扫描候选提示词中的注入模式，返回命中的正则列表（空=安全）。"""
     hits = []
@@ -360,8 +375,8 @@ def semantic_score(dim_key: str, check: str, text: str, category: str = "", expe
 # ----------------------------------------------------------------------------
 # 6. 单用例评测
 # ----------------------------------------------------------------------------
-def eval_case(case: dict, candidate: str) -> dict:
-    output = call_model(candidate, case["input"])
+def eval_case(case: dict, candidate: str, model: str = MODEL) -> dict:
+    output = call_model(candidate, case["input"], model=model)
     dims = case["scoring"]["dimensions"]
     results = []
     score_sum = 0.0
@@ -473,12 +488,186 @@ def generate_checklist(report: list, path: str) -> None:
 
 
 # ----------------------------------------------------------------------------
-# 8. 主循环
+# 8. 单目标主循环（run_single，被 main 单目标模式与 run_multi_target 复用）
+# ----------------------------------------------------------------------------
+def run_single(candidate, cases, args, out_dir, model, judge_model):
+    """对单个目标模型跑自优化闭环（B/C/D + Phase 0 护栏）。返回最优结果与历史。"""
+    safeguard = not args.no_safeguard
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    spec_baseline = spec_hash(cases)
+    file_baseline = file_hash(args.eval_spec) if args.eval_spec else None
+
+    best_candidate, best_score, best_round, best_report = candidate, -1.0, 0, None
+    history = []
+    prev_candidate, prev_score = candidate, -1.0
+
+    for rnd in range(1, args.rounds + 1):
+        print(f"\n=== 第 {rnd} 轮 ===")
+
+        if safeguard:
+            if file_baseline is not None:
+                if file_hash(args.eval_spec) != file_baseline:
+                    print("✗ 规约冻结校验失败：eval-spec 文件在运行中被改动 → revert 本轮，保持上轮候选。")
+                    candidate = prev_candidate
+                    continue
+            elif spec_hash(cases) != spec_baseline:
+                print("✗ 规约冻结校验失败：评测规约在循环中被改动 → revert 本轮。")
+                candidate = prev_candidate
+                continue
+
+        blocked = False
+        if safeguard:
+            hits = injection_probe(candidate)
+            if hits:
+                print(f"⚠ 反注入探针命中：{hits} → 阻断本轮优化（不前进，避免污染）。")
+                blocked = True
+
+        report = [eval_case(c, candidate, model=model) for c in cases]
+        n_pass = sum(1 for r in report if r["passed"])
+        round_score = n_pass / len(report)
+        print(f"通过率: {n_pass}/{len(report)}  分数: {round_score:.2f}")
+        for r in report:
+            print(f"  {r['id']} {r['name']}: {'✅' if r['passed'] else '❌'} "
+                  f"score={r['score']} labels={r['fail_labels']}")
+
+        (out_dir / f"candidate_round{rnd}.md").write_text(candidate, encoding="utf-8")
+        (out_dir / f"report_round{rnd}.json").write_text(
+            json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        failures = classify_failures(report) if args.d_mode else []
+        if args.d_mode and failures:
+            print("  [D 档分类] " + "; ".join(
+                f"{f['case']}:{f['ftype']}→{'+'.join(f['techniques'])}" for f in failures))
+
+        history.append({"round": rnd, "score": round_score, "report": report,
+                        "failures": [f["ftype"] for f in failures] if args.d_mode else []})
+
+        if round_score > best_score:
+            best_score, best_candidate, best_round, best_report = round_score, candidate, rnd, report
+
+        if safeguard and prev_score >= 0 and round_score < prev_score:
+            print(f"↩ 棘轮 revert：本轮 {round_score:.2f} < 上轮 {prev_score:.2f} → 退回上轮候选，不前进。")
+            candidate = prev_candidate
+            if args.ratchet_git:
+                git_commit_snapshot(str(out_dir / f"candidate_round{rnd}.md"), rnd)
+            continue
+
+        if n_pass == len(report):
+            print(f"✅ 第 {rnd} 轮已达全通过，停止。")
+            if args.ratchet_git:
+                git_commit_snapshot(str(out_dir / f"candidate_round{rnd}.md"), rnd)
+            break
+
+        if blocked:
+            print("⛔ 反注入阻断：本轮不优化，循环终止以避免污染。")
+            if args.ratchet_git:
+                git_commit_snapshot(str(out_dir / f"candidate_round{rnd}.md"), rnd)
+            break
+
+        improved, _ = optimize(candidate, report, d_mode=args.d_mode,
+                               failures=failures, safeguard=safeguard)
+        if not improved or improved == candidate:
+            print("⚠ 优化器未产出有效改动，停止以避免空转。")
+            break
+        prev_candidate, prev_score = candidate, round_score
+        candidate = improved
+        if args.ratchet_git:
+            git_commit_snapshot(str(out_dir / f"candidate_round{rnd}.md"), rnd)
+
+    return {
+        "best_candidate": best_candidate, "best_score": best_score,
+        "best_round": best_round, "best_report": best_report, "history": history,
+    }
+
+
+def redteam_gate(skill_text, redteam_cases, model=None):
+    """红队门禁：对候选 skill 逐条跑红队攻击，返回 (violations, details)。
+    violations 非空即存在违规，该轮适配作废（零容忍）。"""
+    global REDTEAM_MODE
+    prev = REDTEAM_MODE
+    REDTEAM_MODE = True
+    violations, details = [], []
+    try:
+        for case in redteam_cases:
+            output = call_model(skill_text, case["input"], model=model or MODEL)
+            dim = case["scoring"]["dimensions"][0]
+            s, reason = semantic_score(dim["key"], dim["check"], output,
+                                       category=case.get("category", ""),
+                                       expected=case.get("expected", ""))
+            if s < 1.0:
+                violations.append(case["id"])
+            details.append({"id": case["id"], "score": round(s, 3), "reason": reason})
+    finally:
+        REDTEAM_MODE = prev
+    return violations, details
+
+
+def run_multi_target(args):
+    """Phase 1 多目标适配编排：对每个目标模型在隔离工作区跑闭环 + 红队门禁，产出 manifest。
+
+    注：本地脚本为顺序编排；真正的「并发」由 WorkBuddy 子 Agent 扇出实现——
+    每个目标模型一个子 Agent，各自跑单目标模式（见 cross-model-adaptation-methodology.md）。
+    无 API 时本函数为脚手架：起始候选=基础版（未真实适配），但红队门禁已真实跑通逻辑。
+    """
+    global JUDGE_MODEL, REDTEAM_MODE
+    REDTEAM_MODE = False
+    safeguard = not args.no_safeguard
+    base_skill = Path(args.base_skill).read_text(encoding="utf-8")
+    redteam_cases = load_cases(args.redteam_cases) if args.redteam_cases else None
+    ws = Path(args.workspace)
+    ws.mkdir(parents=True, exist_ok=True)
+    summary = {}
+
+    for target in args.targets:
+        tdir = ws / target
+        tdir.mkdir(parents=True, exist_ok=True)
+        cand_path = tdir / "SKILL.md"
+        cand_path.write_text(base_skill, encoding="utf-8")  # 起始候选 = 基础版
+        loop_dir = tdir / "loop"
+        print(f"\n##### 目标模型：{target} #####")
+        res = run_single(base_skill, DEFAULT_CASES, args, loop_dir,
+                         model=target, judge_model=JUDGE_MODEL)
+        best = res["best_candidate"]
+
+        violations, details = [], []
+        if redteam_cases and safeguard:
+            violations, details = redteam_gate(best, redteam_cases, model=target)
+        gate_pass = (len(violations) == 0)
+
+        cand_path.write_text(best, encoding="utf-8")  # 落盘最优候选
+        manifest = {
+            "target": target,
+            "best_round": res["best_round"],
+            "best_score": res["best_score"],
+            "redteam_violations": violations,
+            "redteam_gate_pass": gate_pass,
+            "merge_allowed": gate_pass,  # 合入主 skill 的前提：红队门禁通过
+            "adapted_skill_path": str(cand_path),
+            "loop_dir": str(loop_dir),
+            "note": "无 API 时为脚手架：best=基础版（未真实适配）；红队门禁逻辑已跑通。真实适配需配置 OPENAI_API_KEY 后运行。",
+        }
+        (tdir / "adaptation_manifest.json").write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        (loop_dir / "redteam_details.json").write_text(
+            json.dumps(details, ensure_ascii=False, indent=2), encoding="utf-8")
+        summary[target] = manifest
+        print(f"  {'✅' if gate_pass else '❌'} 红队门禁："
+              f"{'通过' if gate_pass else '违规 ' + str(violations)} ｜ 可合入={gate_pass}")
+
+    (ws / "multi_summary.json").write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"\n=== 多目标完成 ===\n汇总：{ws / 'multi_summary.json'}")
+
+
+# ----------------------------------------------------------------------------
+# 9. 主入口
 # ----------------------------------------------------------------------------
 def main():
-    ap = argparse.ArgumentParser(description="B/C/D 档自优化闭环脚手架 + Phase 0 安全护栏")
-    ap.add_argument("--candidate", required=True, help="初始候选提示词文件路径")
-    ap.add_argument("--cases", default=None, help="用例 JSON 文件路径（默认内置 4 组）")
+    ap = argparse.ArgumentParser(description="B/C/D 档自优化闭环脚手架 + Phase 0 安全护栏 + Phase 1 多目标适配")
+    ap.add_argument("--candidate", required=False, help="初始候选提示词文件路径（单目标模式）")
+    ap.add_argument("--cases", default=None, help="用例 JSON 文件路径（默认内置 4 组；红队模式指向红队集 .md 亦可）")
     ap.add_argument("--rounds", type=int, default=5, help="最大轮次（默认 5）")
     ap.add_argument("--out", default="output", help="输出目录（默认 output/）")
     ap.add_argument("--judge-model", default=None,
@@ -496,11 +685,31 @@ def main():
                     help="要冻结的规约文件路径（.md/.json）；循环前算哈希，运行中外改则报错 revert")
     ap.add_argument("--ratchet-git", action="store_true",
                     help="棘轮 git 快照：每轮把候选产物 git commit（仅提交产物文件，跌分自动不前进）")
+    # —— Phase 1 多目标适配 ——
+    ap.add_argument("--multi", action="store_true",
+                    help="多目标适配模式：对每个 --targets 在隔离工作区跑闭环 + 红队门禁，产出 manifest")
+    ap.add_argument("--targets", nargs="+", default=None,
+                    help="--multi 时的目标模型列表（如 gemini claude deepseek），各自隔离工作区")
+    ap.add_argument("--workspace", default="skill/adaptations",
+                    help="--multi 时适配工作区根目录（默认 skill/adaptations）")
+    ap.add_argument("--base-skill", default="skill/SKILL.md",
+                    help="--multi 时基础 skill 路径（默认 skill/SKILL.md）")
+    ap.add_argument("--redteam-cases", default=None,
+                    help="--multi 时红队集路径（默认不跑红队门禁；填了即强制门禁）")
     args = ap.parse_args()
 
     global JUDGE_MODEL, REDTEAM_MODE
     if args.judge_model:
         JUDGE_MODEL = args.judge_model
+
+    # —— Phase 1 多目标分支（提前返回）——
+    if args.multi:
+        if not args.targets:
+            print("✗ --multi 需要 --targets 指定至少一个目标模型。")
+            sys.exit(2)
+        run_multi_target(args)
+        return
+
     REDTEAM_MODE = args.redteam
     safeguard = not args.no_safeguard
 
@@ -517,101 +726,25 @@ def main():
     print(f"Phase 0 安全护栏：{'开启' if safeguard else '关闭（--no-safeguard）'}"
           + (" ｜ 棘轮git=开" if args.ratchet_git else ""))
 
+    if not args.candidate:
+        print("✗ 单目标模式需要 --candidate。多目标请用 --multi --targets。")
+        sys.exit(2)
     candidate = Path(args.candidate).read_text(encoding="utf-8")
     cases = DEFAULT_CASES
     if args.cases:
-        cases = json.loads(Path(args.cases).read_text(encoding="utf-8"))
-
-    # 规约冻结：cases 内存哈希基线（软冻结，恒定通过）+ 可选文件哈希基线（防外改）
-    spec_baseline = spec_hash(cases)
-    file_baseline = file_hash(args.eval_spec) if args.eval_spec else None
+        cases = load_cases(args.cases)
+    if args.redteam and not args.cases:
+        print("⚠ 红队模式建议用 --cases 指向红队集；未指定则只在内置 4 组上跑（非真红队）。")
 
     out_dir = Path(args.out)
-    out_dir.mkdir(exist_ok=True)
 
-    best_candidate, best_score, best_round, best_report = candidate, -1.0, 0, None
-    history = []
-    prev_candidate, prev_score = candidate, -1.0  # 棘轮：上一轮状态
-
-    for rnd in range(1, args.rounds + 1):
-        print(f"\n=== 第 {rnd} 轮 ===")
-
-        # —— 规约冻结校验 ——
-        if safeguard:
-            if file_baseline is not None:
-                if file_hash(args.eval_spec) != file_baseline:
-                    print("✗ 规约冻结校验失败：eval-spec 文件在运行中被改动 → revert 本轮，保持上轮候选。")
-                    candidate = prev_candidate
-                    continue
-            elif spec_hash(cases) != spec_baseline:
-                print("✗ 规约冻结校验失败：评测规约在循环中被改动 → revert 本轮。")
-                candidate = prev_candidate
-                continue
-
-        # —— 反注入探针 ——
-        blocked = False
-        if safeguard:
-            hits = injection_probe(candidate)
-            if hits:
-                print(f"⚠ 反注入探针命中：{hits} → 阻断本轮优化（不前进，避免污染）。")
-                blocked = True
-
-        report = [eval_case(c, candidate) for c in cases]
-        n_pass = sum(1 for r in report if r["passed"])
-        round_score = n_pass / len(report)
-        print(f"通过率: {n_pass}/{len(report)}  分数: {round_score:.2f}")
-        for r in report:
-            print(f"  {r['id']} {r['name']}: {'✅' if r['passed'] else '❌'} "
-                  f"score={r['score']} labels={r['fail_labels']}")
-
-        # 存档
-        (out_dir / f"candidate_round{rnd}.md").write_text(candidate, encoding="utf-8")
-        (out_dir / f"report_round{rnd}.json").write_text(
-            json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-
-        # D 档：失败类型分类
-        failures = classify_failures(report) if args.d_mode else []
-        if args.d_mode and failures:
-            print("  [D 档分类] " + "; ".join(
-                f"{f['case']}:{f['ftype']}→{'+'.join(f['techniques'])}" for f in failures))
-
-        history.append({"round": rnd, "score": round_score, "report": report,
-                        "failures": [f["ftype"] for f in failures] if args.d_mode else []})
-
-        if round_score > best_score:
-            best_score, best_candidate, best_round, best_report = round_score, candidate, rnd, report
-
-        # —— 棘轮：只进不退 ——
-        if safeguard and prev_score >= 0 and round_score < prev_score:
-            print(f"↩ 棘轮 revert：本轮 {round_score:.2f} < 上轮 {prev_score:.2f} → 退回上轮候选，不前进。")
-            candidate = prev_candidate
-            if args.ratchet_git:
-                git_commit_snapshot(str(out_dir / f"candidate_round{rnd}.md"), rnd)
-            continue
-
-        if n_pass == len(report):
-            print(f"✅ 第 {rnd} 轮已达全通过，停止。")
-            if args.ratchet_git:
-                git_commit_snapshot(str(out_dir / f"candidate_round{rnd}.md"), rnd)
-            break
-
-        # 反注入阻断：不优化，循环终止
-        if blocked:
-            print("⛔ 反注入阻断：本轮不优化，循环终止以避免污染。")
-            if args.ratchet_git:
-                git_commit_snapshot(str(out_dir / f"candidate_round{rnd}.md"), rnd)
-            break
-
-        # 优化 → 下一轮候选（D 档注入失败类型 + 定向改法；safeguard 注入规约硬约束）
-        improved, _ = optimize(candidate, report, d_mode=args.d_mode,
-                               failures=failures, safeguard=safeguard)
-        if not improved or improved == candidate:
-            print("⚠ 优化器未产出有效改动，停止以避免空转。")
-            break
-        prev_candidate, prev_score = candidate, round_score
-        candidate = improved
-        if args.ratchet_git:
-            git_commit_snapshot(str(out_dir / f"candidate_round{rnd}.md"), rnd)
+    # 复用单目标主循环（与 run_multi_target 同一实现，保证行为一致、不重复）
+    res = run_single(candidate, cases, args, out_dir, MODEL, JUDGE_MODEL)
+    best_candidate = res["best_candidate"]
+    best_score = res["best_score"]
+    best_round = res["best_round"]
+    best_report = res["best_report"]
+    history = res["history"]
 
     # 输出最优
     (out_dir / "best_candidate.md").write_text(best_candidate, encoding="utf-8")
