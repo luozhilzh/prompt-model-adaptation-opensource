@@ -1,0 +1,4 @@
+# 运行 scripts/run_loop.py / scripts/test_phase0.py 所需依赖
+# 安装：pip install -r requirements.txt
+openai>=1.0
+python-dotenv>=1.0

@@ -16,7 +16,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install dependencies
-        run: pip install --upgrade pip openai python-dotenv
+        run: pip install --upgrade pip -r requirements.txt
 
       - name: Run regression + consistency tests
         run: python scripts/test_phase0.py

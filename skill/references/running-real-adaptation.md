@@ -17,10 +17,10 @@
 ## 1. 前置依赖
 
 ```bash
-pip install openai python-dotenv
+pip install -r requirements.txt
 ```
 
-仓库暂无 `requirements.txt`，手动装这两个即可（`run_loop.py` 顶部 docstring 也注明了）。
+仓库提供 `requirements.txt`（含 `openai`、`python-dotenv`），一键安装即可（`run_loop.py` 顶部 docstring 也注明了）。
 
 ---
 
