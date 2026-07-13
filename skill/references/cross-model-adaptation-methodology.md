@@ -4,6 +4,7 @@
 > 配套：`skill/SKILL.md`、`skill/references/checklist-template.md`、`skill/references/model-quirks.md`、
 > `skill/security/redteam-cases.md`、`scripts/run_loop.py`（含 `--multi` 多目标编排 + 红队门禁）。
 > 范例：`skill/references/demo-a-tier.md`（A 档自评审闭环）、`skill/references/demo-deepseek-adaptation.md`（DeepSeek 五步法适配走查）。
+> 运行：`skill/references/running-real-adaptation.md`（真机适配 API 接入 Runbook：配 .env、命令、读 manifest、回校准 model-quirks）。
 
 ---
 
