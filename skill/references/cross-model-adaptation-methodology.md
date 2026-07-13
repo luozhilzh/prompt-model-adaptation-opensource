@@ -3,6 +3,7 @@
 > 路线 A 核心交付物 · 负责任跨模型适配方法论 · 精干互补「达尔文 skill」
 > 配套：`skill/SKILL.md`、`skill/references/checklist-template.md`、`skill/references/model-quirks.md`、
 > `skill/security/redteam-cases.md`、`scripts/run_loop.py`（含 `--multi` 多目标编排 + 红队门禁）。
+> 范例：`skill/references/demo-a-tier.md`（A 档自评审闭环）、`skill/references/demo-deepseek-adaptation.md`（DeepSeek 五步法适配走查）。
 
 ---
 
