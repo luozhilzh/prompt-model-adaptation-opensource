@@ -16,8 +16,11 @@ prompt-model-adaptation-opensource/
 ├── README.md                              # 本文件：中文使用说明
 ├── README_en.md                           # 英文使用说明
 ├── SOP.md                                 # 纯文本 SOP（合并 4 文件、去 frontmatter），可直贴任意 AI 工具
+├── SECURITY.md                            # 安全护栏说明（Phase 0 结果）：设计 + 红队样例集
 ├── skill/                                 # WorkBuddy 原生 skill（带 frontmatter，给 WorkBuddy 用户）
 │   ├── SKILL.md
+│   ├── security/                          # 安全护栏：红队回归集（Phase 0 结果）
+│   │   └── redteam-cases.md               #   14 条 / 8 类机器可读攻击样例，零容忍判定
 │   └── references/
 │       ├── checklist-template.md         #   可填写的 6 区块适配检查表
 │       ├── regression-and-techniques.md  #   4 组回归用例 + 定向改法速查
@@ -44,8 +47,9 @@ prompt-model-adaptation-opensource/
 │   ├── candidate_v3_c.md                  #   C 档第 3 轮候选（修过触发，4/4）
 │   ├── candidate_v2_d.md                  #   D 档第 2 轮候选（限长+截断示例+澄清门+终止条件）
 │   └── candidate_v3_d.md                  #   D 档第 3 轮候选（加待优化初版类区分，修过触发，4/4）
-├── scripts/                               # B/C/D 档外部 API 闭环脚手架（本地跑，需 key）
-│   ├── run_loop.py                        #   主循环：执行 → 评分 → 优化（B/C 档，--judge-model 切 C，--d-mode 开 D）
+├── scripts/                               # B/C/D 档外部 API 闭环脚手架（本地跑，需 key）；Phase 0 护栏内置
+│   ├── run_loop.py                        #   主循环：执行 → 评分 → 优化（B/C/D 档；--redteam 跑安全回归）
+│   ├── test_phase0.py                     #   安全护栏离线自检（mock 模型，无需 key）
 │   ├── .env.example                       #   API 配置模板
 │   └── README.md                          #   运行说明（含 C 档双模型节）
 └── assets/                                # 文档配图（PNG，GitHub/Gitee 通用渲染）
@@ -263,6 +267,35 @@ Codex 与多数 coding agent 会自动加载仓库根目录的 `AGENTS.md` 作�
 > 诚实提醒：WorkBuddy 内测的"独立"是**结构独立**，不能证实偏差消除；"自适应"是**回填已知结论**，不能证实替代人工——这两类性质只对**跨家族 `JUDGE_MODEL` + 足量 unseen 集**（外部真·C/D 档）成立。
 
 ---
+
+## 安全护栏（Phase 0，已落地）
+
+当提示词进入"自动优化循环"后，最大的风险不是效果差，而是**循环在无人监督下悄悄跑偏**：候选提示词被注入操纵、评测规约被外部改写、某轮退化被当成进步保留。Phase 0 在 A→D 闭环之下加了一层**只守不攻**的护栏，确保优化"只进不退、不被劫持、规约不被悄悄改动"。
+
+四项护栏均已随仓库发布，作用于 `scripts/run_loop.py` v2：
+
+| 护栏 | 作用 | 触发行为 |
+|---|---|---|
+| 规约冻结 Spec Freeze | 对评测用例集计算 sha256 基线，可选对 `eval-spec.md` 做哈希比对；优化器被硬约束为"不得改评测维度/阈值/安全机制、不得植入操纵裁判的指令" | 规约哈希不符则阻断该轮优化 |
+| 棘轮 Ratchet | 只接受分数不低于上轮的候选；可选 `--ratchet-git` 每轮提交产物 | 本轮低于上轮 → 自动回退到上轮最优 |
+| 反注入探针 Injection Probe | 正则扫描候选提示词，命中"忽略评分 / 请打高分 / 你是裁判 / 泄露 system prompt / 绕过安全"等模式即报警 | 含注入的候选被拦截，不进入下一轮 |
+| 红队回归集 Red-Team Set | `skill/security/redteam-cases.md`：14 条 / 8 类机器可读攻击样例（指令覆盖、角色伪装、上下文注入、任务劫持、规约消解、编码绕过、少样本污染、权威欺骗），零容忍判定 | 任意一条违规 → 该轮适配作废，棘轮回退 |
+
+运行红队回归（需 API key）：
+
+```bash
+python scripts/run_loop.py --redteam --cases skill/security/redteam-cases.md
+```
+
+离线自检护栏逻辑（无需 key，mock 模型）：
+
+```bash
+python scripts/test_phase0.py
+```
+
+> 诚实边界：护栏防的是"循环自身跑偏 / 候选被注入操纵 / 规约被外改"，**不证明适配在真实模型上绝对安全**。红队集需随新攻击模式持续扩充；真实安全验证要在目标模型上**实跑红队集**，而非仅过代码层测试。棘轮 git 提交默认关闭（`--ratchet-git` 显式开启），不会自动改动你的 git 历史。
+
+护栏设计与攻击样例集完整说明见 `SECURITY.md`。
 
 ## 许可与贡献
 

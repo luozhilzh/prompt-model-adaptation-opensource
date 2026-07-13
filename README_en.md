@@ -16,17 +16,42 @@ prompt-model-adaptation-opensource/
 ├── README.md                              # This file's Chinese version (使用说明)
 ├── README_en.md                           # This file: English readme
 ├── SOP.md                                 # Plain-text SOP (4 files merged, frontmatter stripped); paste into any AI tool
+├── SECURITY.md                            # Safety guardrails write-up (Phase 0 result): design + red-team case set
 ├── skill/                                 # Native WorkBuddy skill (with frontmatter, for WorkBuddy users)
 │   ├── SKILL.md
+│   ├── security/                          # Safety guardrails: red-team regression set (Phase 0 result)
+│   │   └── redteam-cases.md               #   14 cases / 8 categories, machine-readable, zero-tolerance scoring
 │   └── references/
 │       ├── checklist-template.md         #   fillable 6-section adaptation checklist
 │       ├── regression-and-techniques.md  #   4 regression cases + directed-fix cheat sheet
 │       ├── model-quirks.md               #   per-model-family quirks and adaptation notes
+│       ├── eval-spec.md                  #   machine-readable eval spec for the 4 regression cases (used by A→D loop)
+│       ├── optimizer-meta-prompt.md      #   prompt-optimizer meta-prompt (drives the self-optimization loop)
+│       ├── demo-a-tier.md                #   Stage-A self-review live demo (0/4 → 4/4 record)
+│       ├── tier-tests/                   #   in-WorkBuddy test artifacts per tier (records + reproduction SOP)
+│       │   ├── b_tier_test_record.md     #   Stage-B record (1/4→4/4) + pitfalls
+│       │   ├── b_tier_harness.md         #   Stage-B reproduction SOP
+│       │   ├── c_tier_test_record.md     #   Stage-C record (3/4→3/4→4/4, independent blind judge) + honest boundaries
+│       │   ├── c_tier_harness.md         #   Stage-C reproduction SOP (blind-judge template)
+│       │   ├── d_tier_test_record.md     #   Stage-D record (2/4→3/4→4/4, failure-type-driven + checklist auto-fill) + honest boundaries
+│       │   └── d_tier_harness.md         #   Stage-D reproduction SOP (classifier + directed fix + checklist auto-fill)
 │       └── 模型适配横向对比.md           #   cross-model adaptation diff comparison table
 ├── formats/                               # cross-tool format conversions (each self-contained)
 │   ├── cursor-prompt-model-adaptation.mdc   # Cursor Rule (.mdc)
 │   ├── claude-code-prompt-model-adaptation.md  # Claude Code command
 │   └── codex-AGENTS.md                     # Codex / Agents guide (AGENTS.md style)
+├── tier_test_candidates/                  # B/C/D in-WorkBuddy test artifacts (candidate prompts v1/v2/v3, for reproduction)
+│   ├── candidate_v1.md                    #   round-1 candidate: user's original "AI Prompt Coach" prompt
+│   ├── candidate_v2.md                    #   Stage-B round-2 candidate: optimizer revision
+│   ├── candidate_v2_c.md                  #   Stage-C round-2 candidate (clarification gate, over-triggered)
+│   ├── candidate_v3_c.md                  #   Stage-C round-3 candidate (fixed over-trigger, 4/4)
+│   ├── candidate_v2_d.md                  #   Stage-D round-2 candidate (length cap + truncated example + clarification gate + termination)
+│   └── candidate_v3_d.md                  #   Stage-D round-3 candidate (added "unoptimized first-draft" distinction, fixed over-trigger, 4/4)
+├── scripts/                               # B/C/D external-API loop scaffold (run locally, needs key); Phase 0 guardrails built-in
+│   ├── run_loop.py                        #   main loop: execute → score → optimize (B/C/D tiers; --redteam runs safety regression)
+│   ├── test_phase0.py                     #   offline self-test for safety guardrails (mock model, no key needed)
+│   ├── .env.example                       #   API config template
+│   └── README.md                          #   run instructions (incl. Stage-C dual-model section)
 └── assets/                                # documentation diagrams (PNG, renders on both GitHub & Gitee)
     ├── style-principle-method.svg         #   [source] lifecycle diagram (Chinese SVG)
     ├── style-principle-method.png         #   lifecycle diagram (Chinese PNG — referenced by README.md)
@@ -193,31 +218,44 @@ The current skill is **human-driven prompt optimization**: a human reads regress
   3. Add a 5th step "self-optimization loop (Stage A)" to `SKILL.md`
 - **How**: run the loop manually in conversation — the model acts as optimizer, self-reviews each round per eval-spec.
 - **Acceptance**: after 2–3 rounds on the same bad prompt, the 4-case self-review pass rate rises clearly and changes are traceable.
+- **Live demo**: see `skill/references/demo-a-tier.md` — a one-round demo using the original "AI Prompt Coach" prompt, regression pass rate 0/4 → 4/4.
 
 ### Stage B: Closed loop (add real execution)
 
 - **Prerequisite**: A works.
 - **Build**: `scripts/run_loop.py` + scorer (rule layer regex/structure checks + LLM-judge semantic score 0–1).
-- **How**: script reads eval-spec, **really calls the target model API** on candidate prompts → scores → feeds report back to the Stage-A optimizer → produces next version; keeps the highest-scoring version, auto-stops after 3–5 rounds.
+- **How**: the script reads eval-spec, **really calls the target model API** on candidate prompts → scores → feeds the report back to the Stage-A optimizer → produces the next version; keeps the highest-scoring version and auto-stops after 3–5 rounds.
 - **Acceptance**: one script run outputs "per-round score curve + best prompt + change log".
+- **Tested in-WorkBuddy (no API key)**: see `skill/references/tier-tests/b_tier_test_record.md` — a closed loop run with a WorkBuddy sub-agent as the executor, pass rate **1/4 → 4/4**, with full per-case outputs, scores, and optimizer change logs, plus 7 listed pitfalls (same-model self-scoring bias, incomplete sub-agent isolation, multi-round concatenation needed, clarification-gate over-trigger, cost, non-determinism, overfitting unverified). Reproduction steps in `skill/references/tier-tests/b_tier_harness.md` (sub-agent instruction template + rule-layer Python scoring snippet). Candidate sources: `tier_test_candidates/candidate_v1.md` (v1) and `candidate_v2.md` (v2).
+- **Honest boundary**: in this in-WorkBuddy test, the executor / scorer / optimizer all belong to the same WorkBuddy model family, so scores are only comparable **vertically** (v1→v2), not as a cross-model benchmark; removing the self-scoring bias requires Stage C's independent judge.
+- **External API scaffold provided**: `scripts/run_loop.py` + `scripts/README.md` — runs the loop against the real target model (needs a local API key, OpenAI-compatible). It shares the eval-spec / optimizer logic with the in-WorkBuddy test, only swapping the "sub-agent executor" for `call_model()`; setting `JUDGE_MODEL` upgrades it to Stage C's independent judge.
 
-### Stage C: Dual-model (independent judge)
+### Stage C: Dual-model (independent judge) — ready
 
 - **Prerequisite**: B works.
-- **Build**: judge config item (specify the judging model).
-- **How**: swap the scoring judge for another (or stronger) model, separating generation from judging.
-- **Acceptance**: on the same candidate, Stage-C scores are stricter and less volatile than Stage-B (self-judged) — proving the self-leniency bias is removed.
+- **Build**: `scripts/run_loop.py`'s `JUDGE_MODEL` / `--judge-model` (judge + optimizer on a separate model, executor stays the target model); the in-WorkBuddy test simulates role isolation with an "independent blind-judge sub-agent".
+- **How**: swap the scoring judge (and optimizer) for another (or stronger) model, separating generation from judging.
+- **Tested in-WorkBuddy (no API key)**: see `skill/references/tier-tests/c_tier_test_record.md` — a closed loop run with an independent blind-judge sub-agent (scores outputs only, never reads the candidate), pass rate **3/4 → 3/4 → 4/4** (a clarification-gate over-trigger regression was fixed mid-way); reproduction in `skill/references/tier-tests/c_tier_harness.md`. Candidate sources: `tier_test_candidates/candidate_v1.md`, `candidate_v2_c.md`, `candidate_v3_c.md`.
+- **Honest boundary (important)**: in the in-WorkBuddy test the executor / judge / optimizer still share one model family, so "independent" means **structural isolation only** (context separation) — it does NOT prove "the independent judge is stricter / more stable". In the test, blind-judge and self-judge scores were identical on every sampled case. That property holds only for a **true dual-model** setup (external `run_loop.py` with a cross-family `JUDGE_MODEL`).
+- **External true dual-model provided**: `scripts/run_loop.py --judge-model <different model>` enters Stage C — executor = `MODEL`, judge + optimizer = `JUDGE_MODEL`; see `scripts/README.md` §7.
+- **Acceptance (true dual-model)**: on the same candidate, the cross-family independent judge's scores are stricter and less volatile than Stage-B (self-judged) — proving the self-leniency bias is removed.
 
-### Stage D: Adaptive (data-driven tuning) — the endpoint
+### Stage D: Adaptive (data-driven tuning) — ready
+
+Run it with `scripts/run_loop.py --d-mode` (optionally with `--judge-model` for a cross-family judge).
 
 - **Prerequisite**: C works.
 - **Core idea**: turn the static `model-quirks.md` ("DeepSeek runs long", etc.) into **writable, adjustable constraint parameters** that get auto-modified by measured drift.
+
 - **How** (four steps):
   1. eval-spec builds an "initial constraint set" per model (sourced from model-quirks)
   2. the scorer, besides pass/fail, also outputs a **failure-type label**: `too long / role break / negation fails / format breaks / wording off`
   3. the optimizer reads the failure label and **auto-selects the matching fix** from the "directed-fix cheat sheet" (e.g. detect `too long` → tighten word cap + add truncated example)
   4. after N rounds, freeze that model's `{adapted prompt + actually-effective constraint set}` and auto-fill the checklist's "actual" column
-- **Acceptance**: take a model never hand-tuned, Stage D auto-produces a prompt close to a human adaptation, and the checklist's "actual" column is auto-filled — **human adaptation work is replaced**.
+- **Tested in-WorkBuddy (no API key)**: see `skill/references/tier-tests/d_tier_test_record.md` — the automation chain of failure-type classification → directed fix → checklist auto-fill runs a closed loop, pass rate **2/4 → 3/4 → 4/4** (a clarification-gate over-trigger regression was fixed mid-way); reproduction in `skill/references/tier-tests/d_tier_harness.md`. Candidate sources: `tier_test_candidates/candidate_v1.md`, `candidate_v2_d.md`, `candidate_v3_d.md`.
+- **Honest boundary (important)**: in the in-WorkBuddy test the executor / judge / optimizer share one model family, with **no real cross-model drift data** — the classifier only attaches failure-type labels on the known 4 cases, and the checklist's "actual" column is a **back-filled conclusion**, not a D-stage **self-discovered** new constraint; the classifier only reads "output behavior" and cannot detect "gating-logic misconfiguration" (e.g. a clarification-gate over-trigger gets mislabeled as "format breaks"). So this test only proves the automation chain **can run**, not that "adaptation replaces human tuning".
+- **External true D-stage provided**: `scripts/run_loop.py --d-mode` (recommended with `--judge-model` for cross-family) enters Stage D — auto-classifies failure types, injects directed fixes into the optimizer, and auto-fills `output/checklist_auto.md` on completion; see `scripts/README.md` §8.
+- **Acceptance (true self-adaptation)**: take a model never hand-tuned, plus a sufficient unseen test set; Stage D auto-produces a prompt close to a human adaptation and auto-fills the checklist's "actual" column — **human adaptation work is replaced**. Optimizing only against the known 4 cases overfits, which is not true adaptation.
 
 ### Three cross-cutting principles
 
@@ -225,9 +263,42 @@ The current skill is **human-driven prompt optimization**: a human reads regress
 2. **Guard against overfitting**: keep an unseen test set at every stage; don't optimize only against the known 4 cases.
 3. **Score aligned to real goals**: dimensions must map to "real behavior", not just whether the format looks pretty.
 
-> Honest boundary: this repo currently provides only the Stage-A design thinking for `eval-spec` / `optimizer-meta-prompt` (above). The "real test run" scripts for B/C/D require you to execute them locally with an API key — the repo can incrementally add artifacts like `scripts/run_loop.py`.
+> Honest boundary: this repo provides the full Stage-A design (`eval-spec` / `optimizer-meta-prompt` / SKILL step 5), and **both implementations of Stages A→D are now ready** —
+> - **Stage B**: ① in-WorkBuddy test + reproduction SOP (`skill/references/tier-tests/b_tier_test_record.md` / `b_tier_harness.md`, sub-agent as executor, no key); ② true external API scaffold `scripts/run_loop.py` (self-judge mode).
+> - **Stage C**: ① in-WorkBuddy test + reproduction SOP (`skill/references/tier-tests/c_tier_test_record.md` / `c_tier_harness.md`, independent blind judge, no key — methodology only); ② true external API scaffold `scripts/run_loop.py --judge-model` (cross-family independent judge, true dual-model).
+> - **Stage D**: ① in-WorkBuddy test + reproduction SOP (`skill/references/tier-tests/d_tier_test_record.md` / `d_tier_harness.md`, failure-type classification + directed fix + checklist auto-fill, no key — methodology only); ② true external API scaffold `scripts/run_loop.py --d-mode` (failure-type-driven adaptation + checklist auto-fill, recommended with `--judge-model`).
+> Honest reminder: in the in-WorkBuddy tests, "independent" means **structural isolation** only — it does NOT prove bias removal; "adaptive" means **back-filled conclusions** — it does NOT prove replacing human tuning. These two properties hold only for a **cross-family `JUDGE_MODEL` + sufficient unseen set** (true external C/D stages).
 
 ---
+
+## Safety guardrails (Phase 0, shipped)
+
+When a prompt enters the "automatic optimization loop", the biggest risk is not poor quality — it is the **loop silently drifting off-track without supervision**: a candidate prompt gets injection-manipulated, the eval spec gets rewritten externally, or a regressed round gets kept as an improvement. Phase 0 adds a **defense-only** guardrail layer beneath the A→D loop, ensuring optimization "only moves forward, cannot be hijacked, and the spec cannot be quietly rewritten".
+
+All four guardrails ship with the repo and live in `scripts/run_loop.py` v2:
+
+| Guardrail | What it does | Trigger behavior |
+|---|---|---|
+| Spec Freeze | Computes a sha256 baseline of the eval case set, optionally hashes `eval-spec.md`; the optimizer is hard-constrained to "not change eval dimensions/thresholds/safety mechanisms, not inject instructions that manipulate the judge" | Spec hash mismatch blocks that optimization round |
+| Ratchet | Only accepts candidates scoring no lower than the previous round; optional `--ratchet-git` commits each round's artifact | A round scoring below the previous → auto-revert to the previous best |
+| Injection Probe | Regex-scans candidate prompts; flags patterns like "ignore the scoring / please give a high score / you are the judge / leak the system prompt / bypass safety" | A candidate containing injection is blocked from the next round |
+| Red-Team Set | `skill/security/redteam-cases.md`: 14 cases / 8 categories of machine-readable attack samples (instruction override, role impersonation, context injection, task hijack, spec erosion, encoding evasion, few-shot poisoning, authority spoofing), zero-tolerance scoring | Any single violation → that adaptation round is void, ratchet reverts |
+
+Run the red-team regression (needs API key):
+
+```bash
+python scripts/run_loop.py --redteam --cases skill/security/redteam-cases.md
+```
+
+Self-test the guardrail logic offline (no key, mock model):
+
+```bash
+python scripts/test_phase0.py
+```
+
+> Honest boundary: the guardrails defend against "the loop drifting off-track / candidates being injection-manipulated / the spec being externally rewritten" — they **do NOT prove the adaptation is absolutely safe on the real model**. The red-team set must keep growing with new attack patterns; real safety validation requires **running the red-team set on the target model**, not just passing the code-level tests. Ratchet git commits are off by default (enable explicitly with `--ratchet-git`), so it never silently alters your git history.
+
+Full design and the attack case set are documented in `SECURITY.md`.
 
 ## License & contributing
 
