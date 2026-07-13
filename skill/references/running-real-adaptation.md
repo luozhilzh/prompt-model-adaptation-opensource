@@ -167,7 +167,7 @@ manifest 关键字段：
 | 模型名报错（404 model not found） | `--targets` / `MODEL` 与 `BASE_URL` 网关命名不一致；查网关文档 |
 | 目录嵌套（`google/gemini-2.5-pro`） | 用了含 `/` 的完整 ID，见 §3 备选跑法 |
 | judge 解析失败（score 兜底 0.5） | 裁判模型返回非 JSON；一般模型不稳，重试或换 `JUDGE_MODEL` |
-| `BASE_URL` 默认占位符 | 脚本默认 `https://api.open.com/v1` 是占位符，**必填**真实地址 |
+| `BASE_URL` 默认值 | 脚本默认 `https://api.openai.com/v1`（OpenAI 家族可直接用）；多家族用 `OPENAI_BASE_URL_<TARGET>` 覆盖（见 §3） |
 
 ---
 
