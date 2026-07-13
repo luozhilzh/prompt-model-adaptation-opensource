@@ -2,6 +2,7 @@
 
 目标模型：**Gemini**（如 `gemini-2.5-pro`）。
 
+- 模型特性与适配注意点见 `skill/references/model-quirks.md`（Gemini 相关段落）。
 - 本目录由 `scripts/run_loop.py --multi --targets gemini ...` 自动填充，请勿手动编辑中间产物。
 - 适配产物写入本目录 `SKILL.md`；开始前其为 `skill/SKILL.md` 基础版的副本。
 - **红队门禁未通过前不得合入主文件**：见 `adaptation_manifest.json` 的 `redteam_gate_pass` / `merge_allowed`。
