@@ -25,12 +25,13 @@
 - 真机数字（方差 / baseline / ablation / Pareto / 有界自适应实跑）**等 key**。
 
 ### §6 子 Agent 并发「中心合入」评审（离线，已落地）
-- `scripts/merge_candidates.py`：读取各目标 `adaptation_manifest.json` → 套红队门禁 + 棘轮规则（纯函数 / 零依赖）→ 逐目标判 `merge / revert` 并产出 `merged_review.json`（`--demo` 离线）。
+- `scripts/merge_candidates.py`：读取各目标 `adaptation_manifest.json` → 套红队门禁 + 棘轮规则（纯函数 / 零依赖）→ 逐目标判 `merge / revert` 并产出 `merged_review.json`（`--demo` 离线，判定半段）。
+- `scripts/apply_merge.py`：读 `merged_review.json` → 对 `verdict=merge` 目标按 manifest 的 `adapted_skill_path` 生成独立变体 SKILL.md（含 Provenance 溯源）。安全边界：默认仅写 `skill/adaptations/_merged/<target>.md` 草稿、不碰线上主 skill；`--apply` 提升各子 Agent 目录；`--apply-main --target X` 才覆盖主 `skill/SKILL.md`（覆盖前自动 `.bak` 备份）。`--demo` 离线（落盘半段，与 merge_candidates 构成判定+落盘闭环）。
 
 ### 测试与门禁（CI，全部离线）
 - `scripts/test_phase0.py`（21 用例）+ 反漂移门禁（README 目录树 + 本地链接存在性）。
-- `scripts/test_harness.py`（run_loop 核心逻辑单测，含 `TestMergeCandidates`）。
-- CI：回归 + 反漂移门禁 + harness + 三个离线脚手架工具（`--demo`）全绿。
+- `scripts/test_harness.py`（run_loop 核心逻辑单测，含 `TestMergeCandidates` + `TestApplyMerge`）。
+- CI：回归 + 反漂移门禁 + harness + 四个离线脚手架工具（`--demo`）全绿。
 
 ## 诚实边界（贯穿全仓）
 - 本地 `--multi` 为**顺序编排**；真正并发由 WorkBuddy 子 Agent 扇出实现（§6）。
