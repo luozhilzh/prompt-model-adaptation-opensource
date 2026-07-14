@@ -62,16 +62,31 @@ prompt-model-adaptation-opensource/
 │   ├── test_phase0.py                     #   安全护栏离线自检（mock 模型，无需 key）
 │   ├── .env.example                       #   API 配置模板
 │   └── README.md                          #   运行说明（含 C 档双模型节）
-└── assets/                                # 文档配图（PNG，GitHub/Gitee 通用渲染）
-    ├── style-principle-method.svg         #   [源文件] 生命周期图（中文 SVG）
-    ├── style-principle-method.png         #   生命周期图（中文 PNG，README 引用此）
-    ├── style-principle-method-en.svg      #   [源文件] 同图英文版 SVG
-    ├── style-principle-method-en.png      #   同图英文版 PNG
-    ├── roadmap-a-to-d.svg                  #   [源文件] 路线图 A→D（中文 SVG）
-    ├── roadmap-a-to-d.png                  #   路线图 A→D（中文 PNG，README 引用此）
-    ├── roadmap-a-to-d-en.svg               #   [源文件] 同图英文版 SVG
-    └── roadmap-a-to-d-en.png               #   同图英文版 PNG
+└── assets/                                # 文档配图（SVG，GitHub 通用渲染）
+    ├── style-principle-method.svg         #   提示词优化生命周期：风格/原理（中英文共用）
+    └── roadmap-a-to-d.svg                  #   自优化演进路线图 A→D（中英文共用）
 ```
+
+---
+
+## 快速开始（Quick Start）
+
+三种零门槛上手方式，任选其一：
+
+1. **当 WorkBuddy skill 用（推荐）**：把 `skill/` 复制进用户级 skills 目录，对话里直接说"优化这段提示词"或"适配成 DeepSeek"即可触发。
+   ```bash
+   cp -r skill ~/.workbuddy/skills/prompt-model-adaptation
+   ```
+2. **当纯文本 SOP 用**：把 `SOP.md` 全文粘贴进任意 AI 工具（Claude / GPT / 通义 / 豆包…），它就会照工作流执行。
+3. **跨模型批量适配（需 API key）**：配好 `.env` 后跑多目标编排，自动出每个家族的隔离适配产物；完整 SOP 见 `skill/references/running-real-adaptation.md`。
+   ```bash
+   python scripts/run_loop.py --multi --targets deepseek \
+       --base-skill skill/SKILL.md \
+       --redteam-cases skill/security/redteam-cases.md \
+       --workspace skill/adaptations --rounds 3
+   ```
+
+> 想搞懂"为什么这样适配"，先看 `skill/references/cross-model-adaptation-methodology.md`（五步法 + 家族癖好→定向改法）。
 
 ---
 

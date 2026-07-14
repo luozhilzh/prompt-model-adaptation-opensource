@@ -62,16 +62,31 @@ prompt-model-adaptation-opensource/
 │   ├── test_phase0.py                     #   offline self-test for safety guardrails (mock model, no key needed)
 │   ├── .env.example                       #   API config template
 │   └── README.md                          #   run instructions (incl. Stage-C dual-model section)
-└── assets/                                # documentation diagrams (PNG, renders on both GitHub & Gitee)
-    ├── style-principle-method.svg         #   [source] lifecycle diagram (Chinese SVG)
-    ├── style-principle-method.png         #   lifecycle diagram (Chinese PNG — referenced by README.md)
-    ├── style-principle-method-en.svg      #   [source] same, English SVG
-    ├── style-principle-method-en.png      #   same, English PNG (referenced by this file)
-    ├── roadmap-a-to-d.svg                  #   [source] roadmap A→D (Chinese SVG)
-    ├── roadmap-a-to-d.png                  #   roadmap A→D (Chinese PNG — referenced by README.md)
-    ├── roadmap-a-to-d-en.svg               #   [source] same, English SVG
-    └── roadmap-a-to-d-en.png               #   same, English PNG (referenced by this file)
+└── assets/                                # documentation diagrams (SVG, GitHub-friendly)
+    ├── style-principle-method.svg         #   prompt optimization lifecycle: style/principle (shared zh/en)
+    └── roadmap-a-to-d.svg                  #   self-optimization roadmap A→D (shared zh/en)
 ```
+
+---
+
+## Quick Start
+
+Three zero-setup ways to get going, pick one:
+
+1. **Use as a WorkBuddy skill (recommended)**: copy `skill/` into your user-level skills directory, then just say "optimize this prompt" or "adapt to DeepSeek" in any chat to trigger it.
+   ```bash
+   cp -r skill ~/.workbuddy/skills/prompt-model-adaptation
+   ```
+2. **Use as plain-text SOP**: paste the full text of `SOP.md` into any AI tool (Claude / GPT / Tongyi / Doubao…) and it will follow the workflow.
+3. **Batch cross-model adaptation (needs API key)**: after setting up `.env`, run the multi-target orchestrator to emit isolated adaptations per family; full SOP in `skill/references/running-real-adaptation.md`.
+   ```bash
+   python scripts/run_loop.py --multi --targets deepseek \
+       --base-skill skill/SKILL.md \
+       --redteam-cases skill/security/redteam-cases.md \
+       --workspace skill/adaptations --rounds 3
+   ```
+
+> To understand *why* prompts are adapted this way, start with `skill/references/cross-model-adaptation-methodology.md` (5-step flow + family quirks → directed fixes).
 
 ---
 
