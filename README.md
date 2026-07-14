@@ -319,7 +319,7 @@ Phase 0 是"守住底线的地基"；Phase 1 是路线 A（负责任跨模型适
 |---|---|
 | `skill/references/cross-model-adaptation-methodology.md` | 适配方法学：五步法、A→D 用法、失败类型→定向改法映射、红队门禁、棘轮合入、子 Agent 并发架构 |
 | `skill/references/demo-deepseek-adaptation.md`、`demo-gemini-adaptation.md`、`demo-claude-adaptation.md` | 三模型五步法适配范例集：家族癖好→定向改法；经验预测、非真机跑分、需 `--multi` 校准 |
-| `skill/references/running-real-adaptation.md` | 真机适配 Runbook：配 `.env`、关键架构限制、读 manifest、红队门禁解读、回校准闭环 |
+| `skill/references/running-real-adaptation.md` | 真机适配 Runbook：配 `.env`、每目标网关、读 manifest、红队门禁解读、回校准闭环、§10 真机 SOP + 回灌清单 |
 | `skill/adaptations/` | 多目标隔离工作区（gemini / claude / deepseek 各一目录，互不干扰），含 `adaptation_manifest.json` 契约 |
 | `scripts/run_loop.py --multi` | 多目标编排：对每个目标在隔离工作区跑闭环 + 红队门禁，产出 manifest 与 `multi_summary.json` |
 

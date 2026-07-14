@@ -322,7 +322,7 @@ Deliverables (all ship with the repo):
 |---|---|
 | `skill/references/cross-model-adaptation-methodology.md` | Adaptation methodology: 5-step flow, A→D usage, failure-type→directed-fix map, red-team gate, ratchet merge, sub-agent concurrency architecture |
 | `skill/references/demo-deepseek-adaptation.md`, `demo-gemini-adaptation.md`, `demo-claude-adaptation.md` | Three-model 5-step adaptation example set: family quirks → directed fixes; experience-based prediction, not real-run scores, needs `--multi` calibration |
-| `skill/references/running-real-adaptation.md` | Real-API adaptation runbook: set `.env`, key architecture limits, read manifest, interpret red-team gate, recalibration loop |
+| `skill/references/running-real-adaptation.md` | Real-API adaptation runbook: set `.env`, per-target gateway, read manifest, interpret red-team gate, recalibration loop, §10 real-run SOP + replay checklist |
 | `skill/adaptations/` | Multi-target isolated workspace (gemini / claude / deepseek, each isolated), with `adaptation_manifest.json` contract |
 | `scripts/run_loop.py --multi` | Multi-target orchestrator: runs the loop + red-team gate in an isolated workspace per target, emits a manifest and `multi_summary.json` |
 

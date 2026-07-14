@@ -155,6 +155,8 @@ manifest 关键字段：
 - 若不一致（如 DeepSeek 实际不偏长、Claude 实际不吃预填充）→ **直接改对应段落**，并把改动写进 commit message。
 - 这一步让「家族经验归纳」升级为「本仓库实测知识」，是路线 A【方法学 → 范例 → 真机】的闭环。
 
+> 完整的逐项回灌清单（跑前自检 → 真机跑 → 提取指标 → 回灌 model-quirks / demo → 回归 → 提交，含风险点）见 **§10**。
+
 ---
 
 ## 8. 常见排错
@@ -176,3 +178,90 @@ manifest 关键字段：
 - 无真实 API 时 `--multi` 只产出「基础版副本 + 红队门禁逻辑跑通」的脚手架；本手册所有真机命令需你自备 key。
 - `model-quirks.md` 中 Gemini / Claude 段为公开行为归纳、非本仓库实测，以真机数据校准为准。
 - 红队门禁通过 ≠ 绝对安全；适配产物合入前仍建议人工过一遍 `Safety & Integrity Constraints`。
+
+---
+
+## 10. 真机跑分 SOP + 回灌清单（Replay Checklist）
+
+拿到 `OPENAI_API_KEY` 后，按本清单一次跑通，并把「家族级预测」替换为「真机实测」。全流程分 6 步，建议严格按顺序走，避免漏回灌。
+
+### 步骤 0：跑前自检（Pre-flight）
+
+- [ ] `.env` 已建且 `OPENAI_API_KEY` / `BASE_URL` / `MODEL` 填妥（见 §2）
+- [ ] 目标家族网关变量已设 `OPENAI_BASE_URL_<TARGET>`（多家族时，见 §3）
+- [ ] `python -c "import openai, dotenv"` 无报错（依赖见 §1）
+- [ ] `python scripts/test_phase0.py` 全绿（一致性门禁基线）
+- [ ] `python scripts/simulate_run.py` 跑通（桩模拟对照基线）
+
+### 步骤 1：跑真机（Run）
+
+选 §3 推荐「分家族单网关」逐个跑（目录最干净、互不污染）：
+
+```bash
+# 例：DeepSeek（其余家族改 .env 后同理）
+# .env: BASE_URL=https://api.deepseek.com  OPENAI_API_KEY=sk-...  MODEL=deepseek-chat
+python scripts/run_loop.py --multi --targets deepseek \
+    --base-skill skill/SKILL.md \
+    --redteam-cases skill/security/redteam-cases.md \
+    --workspace skill/adaptations --rounds 3
+# 依次改 .env 跑 claude / gemini
+```
+
+三个目标跑完，确认 `skill/adaptations/{gemini,claude,deepseek}/SKILL.md` 已生成且**非基础副本**（内容经红队门禁迭代过）。
+
+### 步骤 2：读真机指标（Extract）
+
+从各目标 `adaptation_manifest.json` 提取：
+
+- `best_score`：4 组回归最高通过率（0–1）
+- `redteam_violations` / `redteam_gate_pass`：门禁结果（须全空 / `true`，否则该目标未过门禁，禁止回灌）
+- loop 日志（`loop/report_roundN.json`）中的优化轮次、命中红队类别与修复动作
+- 实际部署温度（run_loop 透传值，核对是否落在 `model-quirks.md` 建议区间）
+
+### 步骤 3：回灌 model-quirks.md（Calibrate quirks）
+
+对照真机指标，更新 `skill/references/model-quirks.md` 三家族段：
+
+- **温度区间**：用实测最优温度替换经验区间（保留区间形式，便于后续适配复用）。
+- **弱点列**：与预测一致 → 标注「✅ 已 `--multi` 实测（YYYY-MM-DD，通过率 X）」；不一致 → 改为实测结论并删去原预测。
+- **适配要点**：某条在真机失效 → 降级 / 删除并备注原因；有效 → 打勾。
+- 移除该段「非本仓库实测」的全局免责，或改为「部分实测」。
+- 同步更新 §9 诚实边界中「非实测」的表述（改为「Gemini / Claude / DeepSeek 段已由 `--multi` 实测校准」）。
+
+### 步骤 4：回灌三份 demo 范例（Calibrate demos）
+
+对 `demo-{gemini,claude,deepseek}-adaptation.md`：
+
+- **第 1 步「已知癖好 / 弱点」列**：与真机一致 → 标「✅ 已实测验证」；不一致 → 改实测结论。
+- **约束块 A–E**：某定向改法在真机被证无效 / 过度 → 标「⚠️ 真机下调」或重写；有效 → 保留。
+- **末尾新增「实测记录」小节**：日期、目标模型、通过率、轮次、关键发现（1–3 条）。
+- **DeepSeek 注意**：若用 `deepseek-reasoner`，确认约束经 **user 提示** 传入（见 demo D 块备注），非 system 角色——否则 R1 会忽略。
+
+### 步骤 5：回归验证（Regression）
+
+- `python scripts/test_phase0.py` 必须仍全绿（重点 `test_targets_have_model_quirks_section`、`test_readme_references_resolve`）。
+- `python scripts/simulate_run.py` 桩模拟仍跑通（对照基线未破坏）。
+- `git diff --stat` 仅预期文件改动，无意外文件。
+
+### 步骤 6：提交（Commit）
+
+按项目约定手动提交（不自动）：
+
+```bash
+git add skill/adaptations/ skill/references/model-quirks.md skill/references/demo-*-adaptation.md
+git commit -m "feat: 真机 --multi 跑通并回灌校准三家族范例与 model-quirks"
+```
+
+### 回灌风险点（Watch-outs）
+
+| 风险 | 现象 | 处理 |
+|---|---|---|
+| R1 不用 system prompt | DeepSeek-R1 经 system 角色传约束被忽略 / 行为异常 | 约束改放 user 提示（demo D 块已标注） |
+| Gemini thinking 冗余 | 回复出现显式逐步推理、拉长输出 | 收紧 E 块「无需显式逐步推理」；确认网关未强制 CoT |
+| Claude 礼貌式回退 | 改用 please 式后通过率下降 | 回退直接指令式（demo D 块已标注） |
+| 温度漂移 | 真机最优温度偏离建议区间 | 以实测为准更新 model-quirks，并在 commit 注明 |
+
+### 模拟产物处理
+
+- `skill/adaptations_sim/` 保留作「无 API 快速验证」对照；本手册 §0 已注明其为模拟非真适配。
+- 可选：将真机 `SKILL.md` 复制覆盖 `adaptations_sim/<target>/`（去「模拟」水印）作 golden 样本，便于无 key 时对照。
