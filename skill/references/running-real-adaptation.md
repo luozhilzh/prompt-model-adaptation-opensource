@@ -207,7 +207,7 @@ python scripts/run_loop.py --multi --targets deepseek \
 # 依次改 .env 跑 claude / gemini
 ```
 
-三个目标跑完，确认 `skill/adaptations/{gemini,claude,deepseek}/SKILL.md` 已生成且**非基础副本**（内容经红队门禁迭代过）。
+三个目标跑完，确认 `skill/adaptations/{gemini,claude,deepseek}/SKILL.md` 已生成且**非基础副本**（内容经红队门禁迭代过）。跑完所有目标后，进入 **§11** 做中心合入评审与落盘，再回本清单步骤 3 校准（先合入、再校准，避免校准还没合入的草稿）。
 
 ### 步骤 2：读真机指标（Extract）
 
@@ -265,3 +265,66 @@ git commit -m "feat: 真机 --multi 跑通并回灌校准三家族范例与 mode
 
 - `skill/adaptations_sim/` 保留作「无 API 快速验证」对照；本手册 §0 已注明其为模拟非真适配。
 - 可选：将真机 `SKILL.md` 复制覆盖 `adaptations_sim/<target>/`（去「模拟」水印）作 golden 样本，便于无 key 时对照。
+
+---
+
+## 11. 中心合入评审与落盘（merge_candidates + apply_merge，§6 闭环）
+
+`--multi` 跑完所有目标后，各 `skill/adaptations/<target>/` 已有自己目录的 `SKILL.md` + `adaptation_manifest.json`。方法学 §6 的「中心」负责把这些扇出结果合入主文件。这套**离线评审 + 落盘工具在拿到 key 之前就已就位**，key 一到直接照跑——顺序是 §10 步骤 1（跑真机）之后、步骤 3（校准）之前。
+
+### 步骤 11.0：中心评审（生成 merged_review.json）
+
+```bash
+# 读所有 */adaptation_manifest.json → 套红队门禁 + 棘轮规则 → 产出 merged_review.json
+python scripts/merge_candidates.py \
+    --root skill/adaptations \
+    --out skill/adaptations/_merged/merged_review.json
+
+# 可选：带基线（各目标此前通过率），不带的基线默认 0（首跑任意正向分即合入）
+# python scripts/merge_candidates.py --root skill/adaptations --baseline baseline.json \
+#     --out skill/adaptations/_merged/merged_review.json
+```
+
+判定规则（`decide_merge`，与 `skill/adaptations/README.md` 合入契约一致）：当且仅当 `redteam_gate_pass == True` **且** `best_score - baseline > 0` 时 `verdict = merge`；否则 `revert`（原因：红队未过 / 棘轮未正向 / 二者兼有）。终端打印「N 合入 / M 回退」摘要。
+
+> ⚠ `merged_review.json` 是工作产物（非 `.md`，不被 `.gitignore` 忽略）。要入库做审计就提交；否则 `git checkout -- skill/adaptations/_merged/merged_review.json` 丢弃，或在 `.gitignore` 追加 `_merged/merged_review.json`。
+
+### 步骤 11.1：先看草稿（默认安全，不碰主 skill）
+
+```bash
+python scripts/apply_merge.py \
+    --review skill/adaptations/_merged/merged_review.json \
+    --root skill/adaptations
+```
+
+默认**只**把 `verdict=merge` 的目标生成 `skill/adaptations/_merged/<target>.md` 草稿（含 frontmatter + 适配体 + Provenance 溯源段），**绝不碰线上主 `skill/SKILL.md`**。`verdict=revert` 的目标自动跳过。人工过一遍草稿与 `merged_review.json` 的 `verdict` / `ratchet_delta` 后再决定是否提升。
+
+### 步骤 11.2：提升到各子 Agent 目录（可选）
+
+```bash
+python scripts/apply_merge.py \
+    --review skill/adaptations/_merged/merged_review.json \
+    --root skill/adaptations --apply
+```
+
+`--apply` 把草稿写入 `skill/adaptations/<target>/SKILL.md`（覆盖该目标**自己目录**的产物，目标间互不影响）。
+
+### 步骤 11.3：覆盖主 skill（谨慎，需显式 + 指定目标，自动备份）
+
+```bash
+python scripts/apply_merge.py \
+    --review skill/adaptations/_merged/merged_review.json \
+    --root skill/adaptations --apply-main --target gemini
+```
+
+`--apply-main` 才把某目标变体覆盖主 `skill/SKILL.md`，且覆盖前用 `shutil.copy2` 自动生成 `SKILL.md.bak.<时间戳>` 备份。必须同时给 `--target <name>`，**不会一次覆盖多个**，避免误伤。建议逐个目标确认无误后再提升主 skill。
+
+### 衔接回 §10
+
+- 中心合入在「步骤 1 跑真机」之后、「步骤 3 回灌校准」之前：先合入、再校准，避免校准还没合入的草稿。
+- 合入产物（`--apply` 改动的目标目录 `SKILL.md`、`--apply-main` 改动的 `skill/SKILL.md`、以及 `_merged/` 草稿）一并纳入 §10 步骤 5 回归 + 步骤 6 提交；记得把 `skill/SKILL.md` 也 `git add`（它不在 `skill/adaptations/` 通配内）。
+
+### 诚实边界
+
+- 合入判定只看 `redteam_gate_pass` + 棘轮正向，**不审视适配质量**；`verdict=merge` 不等于「该变体值得进主 skill」，终局仍需人工过一遍 `Safety & Integrity Constraints`（同 §9）。
+- 首跑基线为 0，`best_score>0` 即满足棘轮正向——这是「从无到有」的便利判定，不代表相对旧版有改进；后续回归跑应带 `--baseline` 填上一轮通过率，避免把退步误判为合入。
