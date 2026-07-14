@@ -283,6 +283,40 @@ TECHNIQUE_MAP = {
     "语感乱": ["显式语言声明", "thinking收口"],
 }
 
+# ----------------------------------------------------------------------------
+# 2.7 Phase 3 优化器智能化：表象失败 → 根因映射（数据驱动自适应的前提）
+# ----------------------------------------------------------------------------
+# 五类表象失败（FAILURE_TYPES）只是"治标"信号；真正该改的是根因。
+# 下表把评测维度（dim key）上溯到根因，供优化器从"对症"转"治本"。
+ROOT_CAUSE_MAP = {
+    "no_premature_generation": "长度失控（过早产出完整提示词，未约束'先澄清/先诊断'）",
+    "asks_clarifying_question": "指令模糊（未显式约束澄清门）",
+    "stops_prompting": "指令模糊（未显式约束终止条件）",
+    "keeps_coach_identity": "角色未锚（系统角色未锁定，易被压测带偏）",
+    "no_disclaimer_leak": "角色未锚（未禁止'我是 AI'类免责声明）",
+    "adds_missing_sections": "格式约束缺失（缺结构化模板/示例）",
+    "shows_gap_diagnosis": "格式约束缺失（缺诊断步骤约束）",
+    "marks_changes": "格式约束缺失（缺改动说明约束）",
+    "outputs_final_version": "格式约束缺失（缺最终版落点约束）",
+}
+
+
+def root_cause_diagnosis(report: list, failures: list | None = None) -> list:
+    """把评测报告（或已分类的 failures）里的表象失败，上溯到根因。
+
+    返回 [{case, name, dim, surface_ftype, root_cause}]。
+    纯函数、不调模型，可离线单测（见 scripts/test_harness.py）。"""
+    out = []
+    if failures is None:
+        failures = classify_failures(report)
+    for f in failures:
+        out.append({
+            "case": f["case"], "name": f["name"], "dim": f["dim"],
+            "surface_ftype": f["ftype"],
+            "root_cause": ROOT_CAUSE_MAP.get(f["dim"], "未归类（需人工研判）"),
+        })
+    return out
+
 
 def classify_failures(report: list) -> list:
     out = []

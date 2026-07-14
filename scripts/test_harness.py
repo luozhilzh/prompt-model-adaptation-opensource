@@ -281,6 +281,45 @@ class TestClassifyFailures(unittest.TestCase):
         self.assertEqual(rl.classify_failures([]), [])
 
 
+class TestRootCause(unittest.TestCase):
+    """Phase 3：表象失败 → 根因诊断（纯函数，离线）。"""
+
+    def _report(self):
+        return [
+            {"id": "case_1", "name": "稀疏需求", "passed": True, "dimensions": [
+                {"key": "asks_clarifying_question", "pass": 1.0}]},
+            {"id": "case_3", "name": "角色压测", "passed": False, "dimensions": [
+                {"key": "keeps_coach_identity", "pass": 0.0},
+                {"key": "no_disclaimer_leak", "pass": 0.0}]},
+            {"id": "case_4", "name": "定稿终止", "passed": False, "dimensions": [
+                {"key": "stops_prompting", "pass": 0.0}]},
+        ]
+
+    def test_omits_passed_case(self):
+        diag = rl.root_cause_diagnosis(self._report())
+        self.assertNotIn("case_1", {d["case"] for d in diag})
+
+    def test_maps_surface_to_root_cause(self):
+        diag = rl.root_cause_diagnosis(self._report())
+        rc3 = [d["root_cause"] for d in diag if d["case"] == "case_3"]
+        self.assertEqual(len(rc3), 2)
+        self.assertTrue(all("角色未锚" in r for r in rc3))
+
+    def test_unknown_dim_falls_back(self):
+        # classify_failures 会跳过 FAILURE_TYPE_MAP 之外的维度（不进诊断）；
+        # 兜底分支仅在「直接传入含未知维度的 failures」时触发。
+        fails = [{"case": "x", "name": "x", "dim": "unknown_dim",
+                  "ftype": "未知", "techniques": []}]
+        diag = rl.root_cause_diagnosis([], failures=fails)
+        self.assertEqual(diag[0]["root_cause"], "未归类（需人工研判）")
+
+    def test_accepts_prefilled_failures(self):
+        # 也可直接传 classify_failures 的结果，不重复计算
+        fails = rl.classify_failures(self._report())
+        diag = rl.root_cause_diagnosis(self._report(), failures=fails)
+        self.assertEqual(len(diag), 3)
+
+
 # ===========================================================================
 # 7. 代码块提取 + 诊断块格式化
 # ===========================================================================

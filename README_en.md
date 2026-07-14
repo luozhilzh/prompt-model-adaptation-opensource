@@ -40,6 +40,8 @@ prompt-model-adaptation-opensource/
 │       ├── demo-qwen-adaptation.md       #   Qwen 5-step adaptation demo (domestic-model extras example set)
 │       ├── demo-hunyuan-adaptation.md    #   Hunyuan 5-step adaptation demo (domestic-model extras example set)
 │       ├── running-real-adaptation.md    #   Real-API adaptation runbook (set .env / run --multi / read manifest / recalibrate)
+│       ├── eval-credibility.md           #   Phase 2 eval-credibility scaffold (variance/baseline/ablation templates + offline tool)
+│       ├── optimizer-intelligence.md      #   Phase 3 optimizer-intelligence scaffold (root-cause map / Pareto / bounded adaptive)
 │       ├── tier-tests/                   #   in-WorkBuddy test artifacts per tier (records + reproduction SOP)
 │       │   ├── b_tier_test_record.md     #   Stage-B record (1/4→4/4) + pitfalls
 │       │   ├── b_tier_harness.md         #   Stage-B reproduction SOP
@@ -63,6 +65,8 @@ prompt-model-adaptation-opensource/
 ├── scripts/                               # B/C/D external-API loop scaffold (run locally, needs key); Phase 0 guardrails built-in
 │   ├── run_loop.py                        #   main loop: execute → score → optimize (B/C/D tiers; --redteam runs safety regression; --multi runs multi-target adaptation)
 │   ├── test_phase0.py                     #   offline self-test for safety guardrails (mock model, no key needed)
+│   ├── eval_credibility.py                #   Phase 2 eval credibility: variance/stability roll-up over K judge reports (offline)
+│   ├── root_cause.py                      #   Phase 3 root-cause diagnosis: eval report → root cause (offline, calls run_loop)
 │   ├── .env.example                       #   API config template
 │   └── README.md                          #   run instructions (incl. Stage-C dual-model section)
 └── assets/                                # documentation diagrams (SVG, GitHub-friendly)
@@ -302,6 +306,30 @@ Run it with `scripts/run_loop.py --d-mode` (optionally with `--judge-model` for 
 > - **Stage C**: ① in-WorkBuddy test + reproduction SOP (`skill/references/tier-tests/c_tier_test_record.md` / `c_tier_harness.md`, independent blind judge, no key — methodology only); ② true external API scaffold `scripts/run_loop.py --judge-model` (cross-family independent judge, true dual-model).
 > - **Stage D**: ① in-WorkBuddy test + reproduction SOP (`skill/references/tier-tests/d_tier_test_record.md` / `d_tier_harness.md`, failure-type classification + directed fix + checklist auto-fill, no key — methodology only); ② true external API scaffold `scripts/run_loop.py --d-mode` (failure-type-driven adaptation + checklist auto-fill, recommended with `--judge-model`).
 > Honest reminder: in the in-WorkBuddy tests, "independent" means **structural isolation** only — it does NOT prove bias removal; "adaptive" means **back-filled conclusions** — it does NOT prove replacing human tuning. These two properties hold only for a **cross-family `JUDGE_MODEL` + sufficient unseen set** (true external C/D stages).
+
+---
+
+## Phase 2 / Phase 3 scaffolds (in place; real validation waits for the key)
+
+> Route A's Phase 2 (eval credibility) and Phase 3 (optimizer intelligence) were originally "add per audience / deferred".
+> The offline-buildable parts are now landed — templates, report formats, root-cause map, and offline tools are all in place, **no `OPENAI_API_KEY` needed**; real numbers (variance / baseline / ablation / Pareto / bounded-adaptive runs) still wait for the key.
+
+### Phase 2 — Eval credibility (gate: is the ruler accurate?)
+
+Answers the expert's "is your ruler accurate?": turn "4/4" into reviewable numbers instead of just an honesty-boundary claim.
+
+- **Judge self-consistency voting / variance report**: `scripts/eval_credibility.py` rolls up K judge reports into pass-rate stability + dimension mean/std (`--demo` runs offline). Format in `references/eval-credibility.md` §1.
+- **Baseline comparison (quantify lift)**: run zero-shot / human-once / generic-template on the same task, quantify this pipeline's lift. Template in `references/eval-credibility.md` §2.
+- **Ablation study**: toggle each technique off and measure Δ, proving every trick earned its place. Template in `references/eval-credibility.md` §3.
+- Honest boundary: a variance report only proves "scoring is stable", not "the scoring standard is right"; baseline / ablation are what prove the pipeline adds value. Real numbers need the key + a sufficient unseen set.
+
+### Phase 3 — Optimizer intelligence (make the optimizer smarter, not longer)
+
+Upgrade D-tier's "surface failure → directed fix" from treating symptoms to root causes + multi-objective trade-off + boundedness.
+
+- **Root-cause classification (Surface → Root Cause)**: `run_loop.py`'s `ROOT_CAUSE_MAP` / `root_cause_diagnosis()` maps failing dimensions to root causes (role unanchored / vague instruction / missing format constraint / length runaway), and `scripts/root_cause.py` diagnoses a report offline (`--demo` demo).
+- **Multi-objective Pareto (pass_rate vs length vs safety)** + **bounded adaptive (param bounds + repeated-relax alarm + unseen gate)**: formats and fields defined in `references/optimizer-intelligence.md` §2/§3; real implementation waits for the key.
+- Honest boundary: root-cause map correctness needs human review + cross-model drift data; Pareto / bounded adaptive are format definitions, not yet running code. Depends on Phase 2's eval-credibility numbers.
 
 ---
 

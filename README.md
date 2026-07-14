@@ -40,6 +40,8 @@ prompt-model-adaptation-opensource/
 │       ├── demo-qwen-adaptation.md       #   Qwen 五步法适配范例（国产模型 extras 范例集）
 │       ├── demo-hunyuan-adaptation.md    #   Hunyuan 五步法适配范例（国产模型 extras 范例集）
 │       ├── running-real-adaptation.md    #   真机适配 API 接入 Runbook（配 key/跑 --multi/读 manifest/回校准）
+│       ├── eval-credibility.md           #   Phase 2 评测可信度脚手架（方差/baseline/ablation 模板+离线工具）
+│       ├── optimizer-intelligence.md      #   Phase 3 优化器智能化脚手架（根因映射/Pareto/有界自适应）
 │       ├── tier-tests/                   #   各档位 WorkBuddy 内实测产物（记录 + 复现 SOP）
 │       │   ├── b_tier_test_record.md     #   B 档实测记录（1/4→4/4）+ 踩坑
 │       │   ├── b_tier_harness.md         #   B 档复现 SOP
@@ -63,6 +65,8 @@ prompt-model-adaptation-opensource/
 ├── scripts/                               # B/C/D 档外部 API 闭环脚手架（本地跑，需 key）；Phase 0 护栏内置
 │   ├── run_loop.py                        #   主循环：执行 → 评分 → 优化（B/C/D 档；--redteam 跑安全回归；--multi 多目标适配）
 │   ├── test_phase0.py                     #   安全护栏离线自检（mock 模型，无需 key）
+│   ├── eval_credibility.py                #   Phase 2 评测可信度：K 份裁判报告方差/稳定性汇总（离线）
+│   ├── root_cause.py                      #   Phase 3 根因诊断：评测报告 → 根因映射（离线，调 run_loop）
 │   ├── .env.example                       #   API 配置模板
 │   └── README.md                          #   运行说明（含 C 档双模型节）
 └── assets/                                # 文档配图（SVG，GitHub 通用渲染）
@@ -299,6 +303,30 @@ Codex 与多数 coding agent 会自动加载仓库根目录的 `AGENTS.md` 作�
 > - **C 档**：① WorkBuddy 内实测与复现 SOP（`references/tier-tests/c_tier_test_record.md` / `references/tier-tests/c_tier_harness.md`，独立 blind 裁判、无需 key，仅证方法论）；② 真·外部 API 脚手架 `scripts/run_loop.py --judge-model`（跨家族独立裁判，真·双模型）。
 > - **D 档**：① WorkBuddy 内实测与复现 SOP（`references/tier-tests/d_tier_test_record.md` / `references/tier-tests/d_tier_harness.md`，失败类型分类+定向改法+检查表自填、无需 key，仅证方法论）；② 真·外部 API 脚手架 `scripts/run_loop.py --d-mode`（失败类型驱动自适应+检查表自填，建议配 `--judge-model`）。
 > 诚实提醒：WorkBuddy 内测的"独立"是**结构独立**，不能证实偏差消除；"自适应"是**回填已知结论**，不能证实替代人工——这两类性质只对**跨家族 `JUDGE_MODEL` + 足量 unseen 集**（外部真·C/D 档）成立。
+
+---
+
+## Phase 2 / Phase 3 脚手架（已就位，真机验证等 key）
+
+> 路线 A 的 Phase 2（评测可信度）与 Phase 3（优化器智能化）原定"视听众补 / 暂缓"。
+> 现**先把离线可搭的部分落地**——模板、报告格式、根因映射、离线工具都已就位，**无需 `OPENAI_API_KEY`**；真机数字（方差 / baseline / ablation / Pareto / 有界自适应实跑）仍等 key 后补。
+
+### Phase 2 — 评测可信度（守门：尺子准不准）
+
+回答专家"你尺子准吗"：把"4/4"变成可审查的数字，而非只靠诚实边界自述。
+
+- **裁判自洽投票 / 方差报告**：`scripts/eval_credibility.py` 汇总 K 份裁判报告的通过率稳定性 + 维度分均值/标准差（`--demo` 离线演示）。报告格式见 `references/eval-credibility.md` §1。
+- **baseline 对比（量化 lift）**：同任务跑 zero-shot / 人写一次 / 通用模板，量化本管道 lift。模板见 `references/eval-credibility.md` §2。
+- **ablation 研究**：逐个关掉技术测 Δ，证明每招都挣到了位置。模板见 `references/eval-credibility.md` §3。
+- 诚实边界：方差报告只证"判分稳定"，不证"判分标准对"；baseline / ablation 才证"管道有价值"。真机数字需 key + 足量 unseen 集。
+
+### Phase 3 — 优化器智能化（优化器变聪明而非变长）
+
+把 D 档的"表象失败 → 定向改法"从治标升级为治本 + 多目标权衡 + 有界。
+
+- **根因级分类（Surface → Root Cause）**：`run_loop.py` 的 `ROOT_CAUSE_MAP` / `root_cause_diagnosis()` 把失败维度上溯到根因（角色未锚 / 指令模糊 / 格式约束缺失 / 长度失控），`scripts/root_cause.py` 离线诊断一份报告（`--demo` 演示）。
+- **多目标 Pareto（通过率 vs 长度 vs 安全）** + **有界自适应（参数上下限 + 反复放松报警 + unseen 守门）**：格式与字段定义见 `references/optimizer-intelligence.md` §2/§3，真机实现等 key。
+- 诚实边界：根因映射正确性需人工审 + 跨模型漂移数据验证；Pareto / 有界自适应目前是格式定义，非已运行代码。依赖 Phase 2 的评测可信度数字。
 
 ---
 

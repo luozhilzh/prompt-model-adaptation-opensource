@@ -26,3 +26,8 @@ jobs:
 
       - name: Run harness unit tests (run_loop.py logic, no API)
         run: python scripts/test_harness.py
+
+      - name: Run Phase 2/3 offline scaffold tools (no API)
+        run: |
+          python scripts/eval_credibility.py --demo
+          python scripts/root_cause.py --demo
