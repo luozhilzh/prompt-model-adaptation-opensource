@@ -23,3 +23,6 @@ jobs:
 
       - name: Run doc anti-drift gate (README tree + local links)
         run: python -m unittest scripts.test_phase0.Phase1AntiDriftTest -v
+
+      - name: Run harness unit tests (run_loop.py logic, no API)
+        run: python scripts/test_harness.py
