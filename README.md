@@ -86,7 +86,7 @@ prompt-model-adaptation-opensource/
 
 ## 优化风格与原理
 
-![提示词优化生命周期：风格与原理](assets/style-principle-method.png)
+![提示词优化生命周期：风格与原理](assets/style-principle-method.svg)
 
 ### 风格：工程化、结构化、可复现（不是"措辞玄学"）
 
@@ -210,7 +210,7 @@ Codex 与多数 coding agent 会自动加载仓库根目录的 `AGENTS.md` 作�
 
 当前 skill 是**人驱动的提示词优化**：人看回归结果、手动改提示词。下一步可升级为**带评估闭环的自动提示优化**（灵感来自 DSPy / OPRO / APE）。下图是从「零依赖」到「完全自适应」的四阶演进路线，每阶都是上一阶的超集，**不可跳阶**。
 
-![自优化演进路线图：A 自评审 → D 自适应](assets/roadmap-a-to-d.png)
+![自优化演进路线图：A 自评审 → D 自适应](assets/roadmap-a-to-d.svg)
 
 ### 总策略：增量交付，每阶可独立验收
 

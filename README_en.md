@@ -86,7 +86,7 @@ prompt-model-adaptation-opensource/
 
 ## Optimization style & principle
 
-![Prompt optimization lifecycle: style & principle](assets/style-principle-method-en.png)
+![Prompt optimization lifecycle: style & principle](assets/style-principle-method.svg)
 
 ### Style: engineering-driven, structured, reproducible (not "wording mysticism")
 
@@ -210,7 +210,7 @@ Codex and most coding agents auto-load the repo-root `AGENTS.md` as agent guidan
 
 The current skill is **human-driven prompt optimization**: a human reads regression results and edits the prompt by hand. The next step is to upgrade it into **automatic prompt optimization with an evaluation loop** (inspired by DSPy / OPRO / APE). The diagram below is a four-stage evolution from "zero dependency" to "fully adaptive", where each stage is a superset of the previous and **must not be skipped**.
 
-![Self-optimization roadmap: A self-review → D adaptive](assets/roadmap-a-to-d-en.png)
+![Self-optimization roadmap: A self-review → D adaptive](assets/roadmap-a-to-d.svg)
 
 ### Strategy: incremental delivery, each stage independently verifiable
 

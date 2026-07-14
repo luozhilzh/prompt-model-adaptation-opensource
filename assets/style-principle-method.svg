@@ -1,76 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 560" font-family="'PingFang SC','Microsoft YaHei','Hiragino Sans GB',sans-serif">
-  <!-- background -->
-  <rect x="0" y="0" width="680" height="560" fill="#f8fafc"/>
-
-  <!-- defs: arrowhead -->
-  <defs>
-    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-      <path d="M0,0 L8,3 L0,6 Z" fill="#64748b"/>
-    </marker>
-  </defs>
-
-  <!-- title -->
-  <text x="340" y="38" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">提示词优化：风格与原理生命周期</text>
-
-  <!-- input box -->
-  <rect x="200" y="64" width="280" height="64" rx="10" fill="#e0f2fe" stroke="#7dd3fc" stroke-width="1.5"/>
-  <text x="340" y="92" text-anchor="middle" font-size="15" font-weight="700" fill="#0c4a6e">带病的原始提示词</text>
-  <text x="340" y="113" text-anchor="middle" font-size="12" fill="#075985">模糊词 · 无成功标准 · 角色混淆</text>
-
-  <!-- down arrow input -> core -->
-  <line x1="340" y1="128" x2="340" y2="158" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <!-- core principle box -->
-  <rect x="70" y="162" width="540" height="84" rx="12" fill="#0d9488"/>
-  <text x="340" y="194" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">核心原理：把「主观感受」替换为「可验证的动作 + 标准」</text>
-  <text x="340" y="220" text-anchor="middle" font-size="12" fill="#ccfbf1">用约束替代模糊，让模型每一步都有明确边界</text>
-
-  <!-- down arrow core -> pipeline label -->
-  <line x1="340" y1="246" x2="340" y2="280" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
-  <text x="340" y="300" text-anchor="middle" font-size="13" font-weight="600" fill="#334155">四步流水线（诊断 → 对齐标准 → 适配 → 验收）</text>
-
-  <!-- four step boxes -->
-  <!-- step 1 -->
-  <rect x="30" y="320" width="130" height="86" rx="10" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
-  <circle cx="95" cy="348" r="15" fill="#0d9488"/>
-  <text x="95" y="353" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">1</text>
-  <text x="95" y="378" text-anchor="middle" font-size="13" font-weight="700" fill="#1e293b">诊断优化</text>
-  <text x="95" y="396" text-anchor="middle" font-size="10.5" fill="#64748b">找反模式</text>
-
-  <!-- step 2 -->
-  <rect x="193" y="320" width="130" height="86" rx="10" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
-  <circle cx="258" cy="348" r="15" fill="#0d9488"/>
-  <text x="258" y="353" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">2</text>
-  <text x="258" y="378" text-anchor="middle" font-size="13" font-weight="700" fill="#1e293b">出检查表</text>
-  <text x="258" y="396" text-anchor="middle" font-size="10.5" fill="#64748b">维度化核查</text>
-
-  <!-- step 3 -->
-  <rect x="356" y="320" width="130" height="86" rx="10" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
-  <circle cx="421" cy="348" r="15" fill="#0d9488"/>
-  <text x="421" y="353" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">3</text>
-  <text x="421" y="378" text-anchor="middle" font-size="13" font-weight="700" fill="#1e293b">按模型适配</text>
-  <text x="421" y="396" text-anchor="middle" font-size="10.5" fill="#64748b">定向加固</text>
-
-  <!-- step 4 -->
-  <rect x="519" y="320" width="130" height="86" rx="10" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
-  <circle cx="584" cy="348" r="15" fill="#0d9488"/>
-  <text x="584" y="353" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">4</text>
-  <text x="584" y="378" text-anchor="middle" font-size="13" font-weight="700" fill="#1e293b">回归验证</text>
-  <text x="584" y="396" text-anchor="middle" font-size="10.5" fill="#64748b">预期 vs 实际</text>
-
-  <!-- arrows between steps -->
-  <line x1="162" y1="363" x2="190" y2="363" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="325" y1="363" x2="353" y2="363" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="488" y1="363" x2="516" y2="363" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <!-- down arrow pipeline -> output -->
-  <line x1="340" y1="406" x2="340" y2="436" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <!-- output box -->
-  <rect x="150" y="440" width="380" height="66" rx="10" fill="#dcfce7" stroke="#86efac" stroke-width="1.5"/>
-  <text x="340" y="468" text-anchor="middle" font-size="15" font-weight="700" fill="#14532d">可复用成果（可测试 · 可移植 · 可版本化）</text>
-  <text x="340" y="489" text-anchor="middle" font-size="12" fill="#166534">优化版 · 适配版 · 检查表 · 横向对比</text>
-
-  <!-- footer note -->
-  <text x="340" y="538" text-anchor="middle" font-size="10.5" fill="#94a3b8">配套文档：README「优化风格与原理」节 / SOP.md / skill/references/</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 380" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <rect width="680" height="380" fill="#ffffff"/>
+  <text x="340" y="34" fill="#1f2328" font-size="18" font-weight="700" text-anchor="middle">提示词优化生命周期：风格与原理</text>
+  <g fill="#f6f8fa" stroke="#d0d7de" stroke-width="1.5">
+    <rect x="250" y="70" width="180" height="48" rx="8"/>
+    <rect x="60" y="165" width="180" height="48" rx="8"/>
+    <rect x="440" y="165" width="180" height="48" rx="8"/>
+    <rect x="250" y="280" width="180" height="48" rx="8"/>
+  </g>
+  <g fill="#1f2328" font-size="14" text-anchor="middle">
+    <text x="340" y="99">基础提示词</text>
+    <text x="150" y="194">风格层 · 措辞/格式/语气</text>
+    <text x="530" y="194">原理层 · 角色/约束/CoT</text>
+    <text x="340" y="309">评测 + 红队门禁 → 棘轮合入</text>
+  </g>
+  <g stroke="#0969da" stroke-width="2" fill="none" marker-end="url(#a)">
+    <path d="M340 118 L260 165"/>
+    <path d="M420 165 L520 165"/>
+    <path d="M530 213 L530 280"/>
+    <path d="M420 304 L340 280"/>
+    <path d="M240 304 L145 213"/>
+    <path d="M145 165 L240 118"/>
+  </g>
+  <defs><marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#0969da"/></marker></defs>
+  <text x="340" y="360" fill="#656d76" font-size="12" text-anchor="middle">A 自评审 → D 自适应：风格与原理双轮驱动，评测/红队校验后棘轮合入</text>
 </svg>
