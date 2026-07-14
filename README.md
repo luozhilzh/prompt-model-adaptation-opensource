@@ -358,11 +358,14 @@ Codex 与多数 coding agent 会自动加载仓库根目录的 `AGENTS.md` 作�
 python scripts/run_loop.py --redteam --cases skill/security/redteam-cases.md
 ```
 
-离线自检护栏逻辑（无需 key，mock 模型）：
+离线自检（无需 key，mock 模型）：
 
 ```bash
-python scripts/test_phase0.py
+python scripts/test_phase0.py     # Phase 0 护栏 + 一致性 + 反漂移门禁（21 用例）
+python scripts/test_harness.py    # run_loop 核心逻辑单测（65 用例：纯函数 + mock call_model 的 eval/optimize/redteam/merge/apply）
 ```
+
+CI 还会跑四个离线脚手架工具的 `--demo` 自测（`eval_credibility` / `root_cause` / `merge_candidates` / `apply_merge`），全绿才放行。
 
 > 诚实边界：护栏防的是"循环自身跑偏 / 候选被注入操纵 / 规约被外改"，**不证明适配在真实模型上绝对安全**。红队集需随新攻击模式持续扩充；真实安全验证要在目标模型上**实跑红队集**，而非仅过代码层测试。棘轮 git 提交默认关闭（`--ratchet-git` 显式开启），不会自动改动你的 git 历史。
 
@@ -379,7 +382,7 @@ Phase 0 是"守住底线的地基"；Phase 1 是路线 A（负责任跨模型适
 | `skill/references/cross-model-adaptation-methodology.md` | 适配方法学：五步法、A→D 用法、失败类型→定向改法映射、红队门禁、棘轮合入、子 Agent 并发架构 |
 | `skill/references/demo-deepseek-adaptation.md`、`demo-gemini-adaptation.md`、`demo-claude-adaptation.md` | 三模型五步法适配范例集：家族癖好→定向改法；经验预测、非真机跑分、需 `--multi` 校准 |
 | `skill/references/demo-glm-adaptation.md`、`demo-qwen-adaptation.md`、`demo-hunyuan-adaptation.md` | 国产模型（GLM/Qwen/Hunyuan）五步法增值范例集：同方法论；属 extras（不在 `--targets` 默认工作区）、预测同需实跑校准 |
-| `skill/references/running-real-adaptation.md` | 真机适配 Runbook：配 `.env`、每目标网关、读 manifest、红队门禁解读、回校准闭环、§10 真机 SOP + 回灌清单 |
+| `skill/references/running-real-adaptation.md` | 真机适配 Runbook：配 `.env`、每目标网关、读 manifest、红队门禁解读、回校准闭环、§10 真机 SOP + 回灌清单、§11 中心合入评审与落盘 |
 | `skill/adaptations/` | 多目标隔离工作区（gemini / claude / deepseek 各一目录，互不干扰），含 `adaptation_manifest.json` 契约 |
 | `scripts/run_loop.py --multi` | 多目标编排：对每个目标在隔离工作区跑闭环 + 红队门禁，产出 manifest 与 `multi_summary.json` |
 

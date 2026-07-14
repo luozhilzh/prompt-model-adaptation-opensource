@@ -141,3 +141,14 @@ python scripts/run_loop.py --candidate tier_test_candidates/candidate_v1.md \
 - 但 WorkBuddy 内执行器 / 裁判 / 优化器同家族，且**无真实跨模型漂移数据**——分类器只在已知 4 组上贴标签，检查表是**回填结论**而非 D 档**自主发现**新约束。
 - 要验证"自适应替代人工适配"，必须用本脚手架 `--d-mode` 配**跨家族** `JUDGE_MODEL` + **足量 unseen 用例集**（输入不同、结构同）一起跑：只针对已知 4 组优化会过拟合，那不是真自适应。
 - 已知局限：分类器只认"输出表现"，认不出"门控逻辑配置错误"（如澄清门过触发会被误归"格式崩"），需优化器自行识别修复。
+
+---
+
+## 9. 中心合入评审与落盘（§6，真机跑完 --multi 后）
+
+`--multi` 跑完所有目标后，各 `skill/adaptations/<target>/` 已有 `SKILL.md` + `adaptation_manifest.json`。方法学 §6 的「中心」负责把这些扇出结果合入主文件，工具已就位（离线、无需 key）：
+
+- `scripts/merge_candidates.py --root skill/adaptations --out skill/adaptations/_merged/merged_review.json`：套红队门禁 + 棘轮规则，逐目标判 `merge / revert`，产出 `merged_review.json`。
+- `scripts/apply_merge.py --review ...`：对 `verdict=merge` 目标生成独立变体 SKILL.md（默认仅 `_merged/` 草稿；`--apply` 提升各子目录；`--apply-main --target X` 覆盖主 `skill/SKILL.md` 且自动备份）。
+
+完整流程与诚实边界见 `skill/references/running-real-adaptation.md` §11。

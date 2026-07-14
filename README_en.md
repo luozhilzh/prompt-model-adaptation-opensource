@@ -361,11 +361,14 @@ Run the red-team regression (needs API key):
 python scripts/run_loop.py --redteam --cases skill/security/redteam-cases.md
 ```
 
-Self-test the guardrail logic offline (no key, mock model):
+Self-test offline (no key, mock model):
 
 ```bash
-python scripts/test_phase0.py
+python scripts/test_phase0.py     # Phase 0 guardrails + consistency + anti-drift gate (21 cases)
+python scripts/test_harness.py    # run_loop core-logic unit tests (65 cases: pure functions + mock call_model for eval/optimize/redteam/merge/apply)
 ```
+
+CI also runs `--demo` self-tests for the four offline scaffold tools (`eval_credibility` / `root_cause` / `merge_candidates` / `apply_merge`); all must pass.
 
 > Honest boundary: the guardrails defend against "the loop drifting off-track / candidates being injection-manipulated / the spec being externally rewritten" — they **do NOT prove the adaptation is absolutely safe on the real model**. The red-team set must keep growing with new attack patterns; real safety validation requires **running the red-team set on the target model**, not just passing the code-level tests. Ratchet git commits are off by default (enable explicitly with `--ratchet-git`), so it never silently alters your git history.
 
@@ -382,7 +385,7 @@ Deliverables (all ship with the repo):
 | `skill/references/cross-model-adaptation-methodology.md` | Adaptation methodology: 5-step flow, A→D usage, failure-type→directed-fix map, red-team gate, ratchet merge, sub-agent concurrency architecture |
 | `skill/references/demo-deepseek-adaptation.md`, `demo-gemini-adaptation.md`, `demo-claude-adaptation.md` | Three-model 5-step adaptation example set: family quirks → directed fixes; experience-based prediction, not real-run scores, needs `--multi` calibration |
 | `skill/references/demo-glm-adaptation.md`, `demo-qwen-adaptation.md`, `demo-hunyuan-adaptation.md` | Domestic-model (GLM/Qwen/Hunyuan) 5-step value-add example set: same methodology; extras (not in default `--targets` workspace), predictions also need real-run calibration |
-| `skill/references/running-real-adaptation.md` | Real-API adaptation runbook: set `.env`, per-target gateway, read manifest, interpret red-team gate, recalibration loop, §10 real-run SOP + replay checklist |
+| `skill/references/running-real-adaptation.md` | Real-API adaptation runbook: set `.env`, per-target gateway, read manifest, interpret red-team gate, recalibration loop, §10 real-run SOP + replay checklist, §11 center-merge review & apply |
 | `skill/adaptations/` | Multi-target isolated workspace (gemini / claude / deepseek, each isolated), with `adaptation_manifest.json` contract |
 | `scripts/run_loop.py --multi` | Multi-target orchestrator: runs the loop + red-team gate in an isolated workspace per target, emits a manifest and `multi_summary.json` |
 

@@ -8,7 +8,7 @@
 
 - `README.md`（路线总览、Phase 0 安全底座、Phase 1 方法学）
 - `skill/references/cross-model-adaptation-methodology.md`（适配五步法、A→D 用法、失败类型→定向改法、红队门禁、棘轮合入、子 Agent 并发）
-- `skill/references/running-real-adaptation.md`（真机跑法、关键架构限制、如何回校准 model-quirks）
+- `skill/references/running-real-adaptation.md`（真机跑法、多目标网关与目录约定、如何回校准 model-quirks、§10/§11 真机 SOP 与中心合入）
 - `skill/security/redteam-cases.md`（14 条红队用例，type=semantic，pass_threshold=1.0）
 
 ## 二、核心不变式（违反即被棘轮回退）
@@ -30,7 +30,7 @@
 
 ## 四、PR 自检清单（提交前逐项确认）
 
-- [ ] 本地跑过 `python scripts/test_phase0.py`（全绿，含一致性回归）
+- [ ] 本地跑过 `python scripts/test_phase0.py`（全绿，含一致性回归）+ `python scripts/test_harness.py`（全绿，run_loop 核心逻辑 65 用例）
 - [ ] 若改了适配产物，已确认棘轮 delta ≥ 0 且红队零违反
 - [ ] 若新增 / 改名模型目标，已同步 `model-quirks.md` 段落（且一致性测试仍绿）
 - [ ] 若改了 `skill/SKILL.md`，`Safety & Integrity Constraints` 六条不变量未被删 / 弱
