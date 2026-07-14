@@ -339,5 +339,108 @@ class InjectionProbeTest(unittest.TestCase):
                          "基础 SKILL.md 被反注入探针误杀——探针又过宽了")
 
 
+class Phase1AntiDriftTest(unittest.TestCase):
+    """反漂移门禁：README 的目录树与本地链接引用必须指向真实存在的文件。
+
+    防止「文档与仓库现实不同步」类问题——本仓库曾两次踩坑：
+    1) README 引用 assets/*.png 但 assets/ 实际只有 .svg（GitHub 裂图）；
+    2) 目录树 assets/ 段列出 8 个文件，实际只有 2 个（结构漂移）。
+    这两类问题在收 PR 时极易复发，故固化为离线门禁，CI 自动拦截。
+    """
+
+    ROOT = Path(__file__).resolve().parent.parent
+    READMES = [ROOT / "README.md", ROOT / "README_en.md"]
+
+    @classmethod
+    def _parse_tree(cls, md_text):
+        """从 README 的目录树代码块解析出 (depth, name, is_dir) 列表。"""
+        entries = []
+        in_block = False
+        for line in md_text.splitlines():
+            if line.strip().startswith("```"):
+                in_block = not in_block
+                continue
+            if not in_block:
+                continue
+            if not line.strip():
+                continue
+            m = re.match(r"^([\s│├└─]*?)([├└]──\s*)(.*)$", line)
+            if not m:
+                continue
+            prefix = m.group(1)
+            rest = m.group(3).split(" #")[0].strip()
+            if not rest:
+                continue
+            is_dir = rest.endswith("/")
+            name = rest.rstrip("/").strip()
+            depth = len(prefix) // 4
+            entries.append((depth, name, is_dir))
+        return entries
+
+    @classmethod
+    def _tree_paths(cls):
+        """返回 README 目录树中声明的所有文件/目录相对路径（跳过仓库根头）。"""
+        paths = []
+        for md in cls.READMES:
+            if not md.exists():
+                continue
+            root_name = cls.ROOT.name
+            seen_root = False
+            stack = []
+            for depth, name, is_dir in cls._parse_tree(md.read_text(encoding="utf-8")):
+                # 跳过目录树首行的仓库根头（如 prompt-model-adaptation-opensource/）
+                if not seen_root and depth == 0 and is_dir and name == root_name:
+                    seen_root = True
+                    continue
+                stack = stack[:depth]
+                if is_dir:
+                    stack.append(name)
+                    rel = "/".join(stack)
+                else:
+                    rel = "/".join(stack + [name])
+                paths.append(rel)
+        return paths
+
+    @classmethod
+    def _md_local_links(cls):
+        """返回 README 中本地相对链接/图片引用（排除 http/锚点/代码块内）。"""
+        refs = []
+        link_re = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
+        for md in cls.READMES:
+            if not md.exists():
+                continue
+            in_block = False
+            for line in md.read_text(encoding="utf-8").splitlines():
+                if line.strip().startswith("```"):
+                    in_block = not in_block
+                    continue
+                if in_block:
+                    continue
+                for m in link_re.finditer(line):
+                    target = m.group(1).strip()
+                    if not target or target.startswith(("http://", "https://", "mailto:", "#")):
+                        continue
+                    target = target.split("#")[0].split()[0]  # 去锚点与链接标题
+                    if target.endswith("/"):
+                        target = target[:-1]
+                    if target:
+                        refs.append(target)
+        return refs
+
+    def test_directory_tree_entries_exist(self):
+        missing = sorted({p for p in self._tree_paths() if not (self.ROOT / p).exists()})
+        self.assertEqual(
+            missing, [],
+            f"README 目录树列出了不存在的路径（结构漂移）：{missing}",
+        )
+
+    def test_readme_local_links_resolve(self):
+        missing = sorted({r for r in self._md_local_links() if not (self.ROOT / r).exists()})
+        self.assertEqual(
+            missing, [],
+            f"README 含指向不存在本地文件的链接/图片（裂图或悬空引用）：{missing}",
+        )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
