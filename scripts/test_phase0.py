@@ -353,12 +353,15 @@ class Phase1AntiDriftTest(unittest.TestCase):
 
     @classmethod
     def _parse_tree(cls, md_text):
-        """从 README 的目录树代码块解析出 (depth, name, is_dir) 列表。"""
+        """从 README 的目录树代码块解析出 (depth, name, is_dir, block_id) 列表。"""
         entries = []
         in_block = False
+        block_id = 0
         for line in md_text.splitlines():
             if line.strip().startswith("```"):
                 in_block = not in_block
+                if in_block:
+                    block_id += 1
                 continue
             if not in_block:
                 continue
@@ -368,18 +371,18 @@ class Phase1AntiDriftTest(unittest.TestCase):
             if not m:
                 continue
             prefix = m.group(1)
-            rest = m.group(3).split(" #")[0].strip()
+            rest = m.group(3).split()[0].strip()  # 容忍 " # " 与 " · " 等多种注释分隔符
             if not rest:
                 continue
             is_dir = rest.endswith("/")
             name = rest.rstrip("/").strip()
             depth = len(prefix) // 4
-            entries.append((depth, name, is_dir))
+            entries.append((depth, name, is_dir, block_id))
         return entries
 
     @classmethod
     def _tree_paths(cls):
-        """返回 README 目录树中声明的所有文件/目录相对路径（跳过仓库根头）。"""
+        """返回 README 目录树中声明的所有文件/目录相对路径（跳过仓库根头、按代码块隔离）。"""
         paths = []
         for md in cls.READMES:
             if not md.exists():
@@ -387,7 +390,12 @@ class Phase1AntiDriftTest(unittest.TestCase):
             root_name = cls.ROOT.name
             seen_root = False
             stack = []
-            for depth, name, is_dir in cls._parse_tree(md.read_text(encoding="utf-8")):
+            prev_block = None
+            for depth, name, is_dir, block_id in cls._parse_tree(md.read_text(encoding="utf-8")):
+                # 每个 ``` 代码块独立解析，避免跨块路径栈泄漏
+                if block_id != prev_block:
+                    stack = []
+                    prev_block = block_id
                 # 跳过目录树首行的仓库根头（如 prompt-model-adaptation-opensource/）
                 if not seen_root and depth == 0 and is_dir and name == root_name:
                     seen_root = True

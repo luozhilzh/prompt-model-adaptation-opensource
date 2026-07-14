@@ -71,9 +71,15 @@ prompt-model-adaptation-opensource/
 
 ## Quick Start
 
-Three zero-setup ways to get going, pick one:
+**No API key? See the full pipeline instantly — run the zero-dependency simulation first (strongly recommended as step 0):**
 
-1. **Use as a WorkBuddy skill (recommended)**: copy `skill/` into your user-level skills directory, then just say "optimize this prompt" or "adapt to DeepSeek" in any chat to trigger it.
+0. **Zero-key trial (no setup at all)**: just run the simulation to verify the whole multi-target orchestration scaffold runs end-to-end, and emits example artifacts watermarked "simulated" under `skill/adaptations_sim/`.
+   ```bash
+   python scripts/simulate_run.py
+   ```
+   No `openai` install, no `OPENAI_API_KEY` — results in seconds. See "Zero-dependency verification: simulation run" below.
+
+1. **Use as a WorkBuddy skill (recommended for daily use)**: copy `skill/` into your user-level skills directory, then just say "optimize this prompt" or "adapt to DeepSeek" in any chat to trigger it.
    ```bash
    cp -r skill ~/.workbuddy/skills/prompt-model-adaptation
    ```
@@ -355,15 +361,25 @@ Merge rule (the hard invariant among hard invariants): a target artifact may be 
 
 > Honest boundary: local `--multi` is **sequential orchestration**; true concurrency comes from fanning out WorkBuddy sub-agents (one per target — see the methodology doc §6). **Without a real API**, this phase ships only the "workspace skeleton + methodology + red-team gate logic wired up" scaffold; real cross-model adaptation (different failure modes per model → different directed fixes) requires configuring `OPENAI_API_KEY` first. The red-team gate proves "the artifact did not weaken safety", not "absolutely safe on the real model".
 
-### Zero-dependency verification: simulation run (proves the scaffold runs)
+### Zero-dependency verification: simulation run (full pipeline without an API key)
 
-You can verify the full `--multi` orchestration logic without a real API — `scripts/simulate_run.py` replaces the model call with a stub function (no network, no `openai` SDK dependency) but **reuses the real `run_multi_target` eval / optimization / red-team gate / ratchet / artifact-writing logic**. Pre-generated example artifacts live in `skill/adaptations_sim/` (`gemini/`, `claude/`, `deepseek/`, each with `adaptation_manifest.json` and `SKILL.md`; `multi_summary.json` aggregates), all watermarked "simulated · not a real adaptation".
+You can verify the full `--multi` orchestration logic without a real API — `scripts/simulate_run.py` replaces the model call with a stub function (no network, no `openai` SDK dependency) but **reuses the real `run_multi_target` eval / optimization / red-team gate / ratchet / artifact-writing logic**.
 
 ```bash
 python scripts/simulate_run.py --targets gemini claude deepseek --rounds 3
 ```
 
-> Honest boundary: simulated artifacts are **stub-fabricated** — they only prove the scaffold and artifact structure are correct, **not** the adaptation quality of any real model. Real adaptation still requires configuring `OPENAI_API_KEY` and running `run_loop.py --multi` (above).
+The run emits example artifacts under `skill/adaptations_sim/` (committed with the repo, browsable directly):
+```
+├── skill/adaptations_sim/
+│   ├── gemini/      adaptation_manifest.json · SKILL.md · loop/
+│   ├── claude/      adaptation_manifest.json · SKILL.md · loop/
+│   ├── deepseek/    adaptation_manifest.json · SKILL.md · loop/
+│   └── multi_summary.json
+```
+Each `adaptation_manifest.json` carries `note: "no API → scaffold only…"` and a "simulated · not a real adaptation" watermark; the red-team gate / ratchet / isolated workspace are all **real logic running end-to-end**.
+
+> Honest boundary: simulated artifacts are **stub-fabricated** — they only prove the scaffold and artifact structure are correct, **not** the adaptation quality of any real model. Real adaptation still requires configuring `OPENAI_API_KEY` and running `run_loop.py --multi` (Quick Start item 3 above).
 
 ## License & contributing
 

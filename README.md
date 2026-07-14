@@ -71,9 +71,15 @@ prompt-model-adaptation-opensource/
 
 ## 快速开始（Quick Start）
 
-三种零门槛上手方式，任选其一：
+**不想配 API key 也能立刻看到全流程？先跑零依赖模拟（强烈推荐第一步）：**
 
-1. **当 WorkBuddy skill 用（推荐）**：把 `skill/` 复制进用户级 skills 目录，对话里直接说"优化这段提示词"或"适配成 DeepSeek"即可触发。
+0. **零 key 试跑（无需任何配置）**：直接跑模拟，验证整套多目标编排脚手架端到端跑通，并在 `skill/adaptations_sim/` 生成带「模拟」水印的示例产物。
+   ```bash
+   python scripts/simulate_run.py
+   ```
+   无需安装 `openai`、无需 `OPENAI_API_KEY`，几十秒出结果。详见下方「零依赖验证：模拟运行」。
+
+1. **当 WorkBuddy skill 用（推荐长期使用）**：把 `skill/` 复制进用户级 skills 目录，对话里直接说"优化这段提示词"或"适配成 DeepSeek"即可触发。
    ```bash
    cp -r skill ~/.workbuddy/skills/prompt-model-adaptation
    ```
@@ -352,15 +358,25 @@ python scripts/run_loop.py --multi \
 
 > 诚实边界：本地 `--multi` 为**顺序编排**，真正的并发由 WorkBuddy 子 Agent 扇出实现（每个目标一个子 Agent，见方法论文档 §6）。**无真实 API 时**，本阶段仅交付"工作区骨架 + 方法论 + 红队门禁逻辑跑通"的脚手架，真实跨模型适配（不同模型的不同失败模式 → 不同定向改法）需配置 `OPENAI_API_KEY` 后运行；红队门禁证明"适配产物没弱化安全"，不证明"在真实模型上绝对安全"。
 
-### 零依赖验证：模拟运行（证明脚手架可跑）
+### 零依赖验证：模拟运行（无 API key 也能跑通全链路）
 
-没有真实 API 也能验证整套 `--multi` 编排逻辑是否跑通——`scripts/simulate_run.py` 用桩函数替换模型调用（不联网、不依赖 `openai` SDK），**复用真实的 `run_multi_target` 评测 / 优化 / 红队门禁 / 棘轮 / 产物落盘逻辑**。已生成的示例产物在 `skill/adaptations_sim/`（`gemini/`、`claude/`、`deepseek/` 各含 `adaptation_manifest.json` 与 `SKILL.md`，`multi_summary.json` 汇总），均带「模拟·非真适配」水印。
+没有真实 API 也能验证整套 `--multi` 编排逻辑是否跑通——`scripts/simulate_run.py` 用桩函数替换模型调用（不联网、不依赖 `openai` SDK），**复用真实的 `run_multi_target` 评测 / 优化 / 红队门禁 / 棘轮 / 产物落盘逻辑**。
 
 ```bash
 python scripts/simulate_run.py --targets gemini claude deepseek --rounds 3
 ```
 
-> 诚实边界：模拟产物均为**桩模型伪造**，仅证明脚手架与产物结构正确，**不代表任何真实模型的适配质量**；真实适配仍需配 `OPENAI_API_KEY` 跑 `run_loop.py --multi`（见上）。
+跑完在 `skill/adaptations_sim/` 生成示例产物（已随仓库提交，可直接浏览）：
+```
+├── skill/adaptations_sim/
+│   ├── gemini/      adaptation_manifest.json · SKILL.md · loop/
+│   ├── claude/      adaptation_manifest.json · SKILL.md · loop/
+│   ├── deepseek/    adaptation_manifest.json · SKILL.md · loop/
+│   └── multi_summary.json
+```
+每个 `adaptation_manifest.json` 都带 `note: "无 API 时为脚手架…"` 与「模拟·非真适配」水印；红队门禁 / 棘轮 / 隔离工作区均为**真实逻辑跑通**。
+
+> 诚实边界：模拟产物均为**桩模型伪造**，仅证明脚手架与产物结构正确，**不代表任何真实模型的适配质量**；真实适配仍需配 `OPENAI_API_KEY` 跑 `run_loop.py --multi`（见上方 Quick Start 第 3 项）。
 
 ## 许可与贡献
 
