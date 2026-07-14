@@ -17,15 +17,20 @@ prompt-model-adaptation-opensource/
 ├── README_en.md                           # This file: English readme
 ├── SOP.md                                 # Plain-text SOP (4 files merged, frontmatter stripped); paste into any AI tool
 ├── SECURITY.md                            # Safety guardrails write-up (Phase 0 result): design + red-team case set
+├── CHANGELOG.md                           # Milestone changelog (Phase 0→1→2/3 scaffold; marks offline / key-pending)
 ├── skill/                                 # Native WorkBuddy skill (with frontmatter, for WorkBuddy users)
 │   ├── SKILL.md
 │   ├── security/                          # Safety guardrails: red-team regression set (Phase 0 result)
 │   │   └── redteam-cases.md               #   14 cases / 8 categories, machine-readable, zero-tolerance scoring
-│   ├── adaptations/                       # Cross-model adaptation workspace (Phase 1 result): gemini/claude/deepseek isolated
+│   ├── adaptations/                       # Cross-model adaptation workspace (Phase 1 result): 6 isolated model dirs (sub-agent fan-out)
 │   │   ├── README.md                      #   workspace contract + manifest field reference
+│   │   ├── _merged/                       #   center-merge drafts (apply_merge default output, independent variants, not overwriting live)
 │   │   ├── gemini/                        #   Gemini adaptation artifacts (isolated)
 │   │   ├── claude/                        #   Claude adaptation artifacts (isolated)
-│   │   └── deepseek/                      #   DeepSeek adaptation artifacts (isolated)
+│   │   ├── deepseek/                      #   DeepSeek adaptation artifacts (isolated)
+│   │   ├── glm/                           #   GLM adaptation artifacts (isolated, domestic)
+│   │   ├── qwen/                          #   Qwen adaptation artifacts (isolated, domestic)
+│   │   └── hunyuan/                       #   Hunyuan adaptation artifacts (isolated, domestic)
 │   └── references/
 │       ├── checklist-template.md         #   fillable 6-section adaptation checklist
 │       ├── regression-and-techniques.md  #   4 regression cases + directed-fix cheat sheet
@@ -67,6 +72,8 @@ prompt-model-adaptation-opensource/
 │   ├── test_phase0.py                     #   offline self-test for safety guardrails (mock model, no key needed)
 │   ├── eval_credibility.py                #   Phase 2 eval credibility: variance/stability roll-up over K judge reports (offline)
 │   ├── root_cause.py                      #   Phase 3 root-cause diagnosis: eval report → root cause (offline, calls run_loop)
+│   ├── merge_candidates.py                #   §6 center merge review: read manifests → red-team + ratchet → merge/revert (offline)
+│   ├── apply_merge.py                     #   §6 apply: merge verdict → independent variant (draft by default; --apply/--apply-main promote)
 │   ├── .env.example                       #   API config template
 │   └── README.md                          #   run instructions (incl. Stage-C dual-model section)
 └── assets/                                # documentation diagrams (SVG, GitHub-friendly)

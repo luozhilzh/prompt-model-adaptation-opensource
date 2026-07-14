@@ -1,0 +1,3 @@
+# 中心合入草稿目录（apply_merge.py 默认输出）
+# 本目录由 .gitkeep 占位以保证 README 目录树诚实；生成的 <target>.md 草稿被 .gitignore 排除，
+# 审阅后可用 --apply 提升到各子 Agent 目录，或用 --apply-main --target X 覆盖主 skill。

@@ -118,6 +118,8 @@ python scripts/run_loop.py --multi \
 - 子 Agent 交"真实跑出的 manifest"，中心只认文件不认嘴；
 - 红队 Agent（prompt-engineering-expert，只读+研判）对候选做反注入测试；
 - Phase 0 棘轮机制兜住"并发放大混乱"的风险。
+- 中心的「合入评审」已离线可跑：见 `scripts/merge_candidates.py`——读取各目标 `adaptation_manifest.json` → 套红队门禁 + 棘轮规则 → 逐目标判 `merge / revert` 并产出 `merged_review.json`（纯函数、零依赖、`--demo` 可验）。
+- 评审判定后的「落盘」也离线可跑：见 `scripts/apply_merge.py`——读 `merged_review.json` → 对 `merge` 目标生成独立变体 SKILL.md。**默认只写 `skill/adaptations/_merged/<target>.md` 草稿、不覆盖线上主 skill**；`--apply` 提升到各子 Agent 目录；`--apply-main --target X` 才覆盖主 `skill/SKILL.md`（覆盖前自动 `.bak` 备份）。延续「中心只认文件、不认嘴」的边界。
 
 ---
 

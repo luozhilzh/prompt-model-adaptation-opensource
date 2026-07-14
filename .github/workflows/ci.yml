@@ -31,3 +31,9 @@ jobs:
         run: |
           python scripts/eval_credibility.py --demo
           python scripts/root_cause.py --demo
+
+      - name: Run §6 merge-candidates review (no API)
+        run: python scripts/merge_candidates.py --demo
+
+      - name: Run §6 apply-merge draft (no API)
+        run: python scripts/apply_merge.py --demo

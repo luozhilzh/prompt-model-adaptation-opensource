@@ -17,15 +17,20 @@ prompt-model-adaptation-opensource/
 ├── README_en.md                           # 英文使用说明
 ├── SOP.md                                 # 纯文本 SOP（合并 4 文件、去 frontmatter），可直贴任意 AI 工具
 ├── SECURITY.md                            # 安全护栏说明（Phase 0 结果）：设计 + 红队样例集
+├── CHANGELOG.md                           # 里程碑变更记录（Phase 0→1→2/3 脚手架，标注离线/等 key）
 ├── skill/                                 # WorkBuddy 原生 skill（带 frontmatter，给 WorkBuddy 用户）
 │   ├── SKILL.md
 │   ├── security/                          # 安全护栏：红队回归集（Phase 0 结果）
 │   │   └── redteam-cases.md               #   14 条 / 8 类机器可读攻击样例，零容忍判定
-│   ├── adaptations/                       # 跨模型适配工作区（Phase 1 结果）：gemini/claude/deepseek 隔离目录
+│   ├── adaptations/                       # 跨模型适配工作区（Phase 1 结果）：6 模型隔离目录（子 Agent 扇出）
 │   │   ├── README.md                      #   工作区契约 + manifest 字段说明
+│   │   ├── _merged/                       #   中心合入草稿（apply_merge 默认产物，独立变体，不覆盖线上）
 │   │   ├── gemini/                        #   Gemini 适配产物（隔离）
 │   │   ├── claude/                        #   Claude 适配产物（隔离）
-│   │   └── deepseek/                      #   DeepSeek 适配产物（隔离）
+│   │   ├── deepseek/                      #   DeepSeek 适配产物（隔离）
+│   │   ├── glm/                           #   GLM 适配产物（隔离，国产）
+│   │   ├── qwen/                          #   Qwen 适配产物（隔离，国产）
+│   │   └── hunyuan/                       #   Hunyuan/混元 适配产物（隔离，国产）
 │   └── references/
 │       ├── checklist-template.md         #   可填写的 6 区块适配检查表
 │       ├── regression-and-techniques.md  #   4 组回归用例 + 定向改法速查
@@ -67,6 +72,8 @@ prompt-model-adaptation-opensource/
 │   ├── test_phase0.py                     #   安全护栏离线自检（mock 模型，无需 key）
 │   ├── eval_credibility.py                #   Phase 2 评测可信度：K 份裁判报告方差/稳定性汇总（离线）
 │   ├── root_cause.py                      #   Phase 3 根因诊断：评测报告 → 根因映射（离线，调 run_loop）
+│   ├── merge_candidates.py                #   §6 中心合入评审：读各 manifest→红队+棘轮判 merge/revert（离线）
+│   ├── apply_merge.py                     #   §6 落盘：merge 判定→生成独立变体（默认草稿，--apply/--apply-main 提升）
 │   ├── .env.example                       #   API 配置模板
 │   └── README.md                          #   运行说明（含 C 档双模型节）
 └── assets/                                # 文档配图（SVG，GitHub 通用渲染）

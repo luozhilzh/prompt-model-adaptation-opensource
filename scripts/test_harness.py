@@ -22,6 +22,9 @@ import unittest
 from unittest.mock import patch
 
 import run_loop as rl
+import merge_candidates as mc
+import apply_merge as am
+import merge_candidates as mc
 
 
 # ===========================================================================
@@ -279,6 +282,124 @@ class TestClassifyFailures(unittest.TestCase):
 
     def test_empty_report(self):
         self.assertEqual(rl.classify_failures([]), [])
+
+
+# ===========================================================================
+# 6b. 子 Agent 扇出「中心合入」评审（Phase 1 · §6，纯函数，离线）
+# ===========================================================================
+class TestMergeCandidates(unittest.TestCase):
+    def test_merge_when_redteam_pass_and_ratchet_positive(self):
+        m = {"target": "gemini", "best_score": 0.85,
+             "redteam_violations": [], "redteam_gate_pass": True}
+        d = mc.decide_merge(m, {"gemini": 0.70})
+        self.assertEqual(d["verdict"], "merge")
+        self.assertGreater(d["ratchet_delta"], 0)
+
+    def test_revert_on_redteam_fail(self):
+        m = {"target": "claude", "best_score": 0.90,
+             "redteam_violations": ["RT-03"], "redteam_gate_pass": False}
+        d = mc.decide_merge(m, {"claude": 0.65})
+        self.assertEqual(d["verdict"], "revert")
+        self.assertIn("红队", d["reason"])
+
+    def test_revert_on_ratchet_negative(self):
+        m = {"target": "deepseek", "best_score": 0.55,
+             "redteam_violations": [], "redteam_gate_pass": True}
+        d = mc.decide_merge(m, {"deepseek": 0.60})
+        self.assertEqual(d["verdict"], "revert")
+        self.assertIn("棘轮", d["reason"])
+
+    def test_revert_on_both_fail(self):
+        m = {"target": "x", "best_score": 0.40,
+             "redteam_violations": ["RT-01"], "redteam_gate_pass": False}
+        d = mc.decide_merge(m, {"x": 0.60})
+        self.assertEqual(d["verdict"], "revert")
+        self.assertIn("红队", d["reason"])
+        self.assertIn("棘轮", d["reason"])
+
+    def test_load_manifests_skips_bad(self):
+        tmp = tempfile.mkdtemp()
+        good = os.path.join(tmp, "gemini")
+        os.makedirs(good)
+        with open(os.path.join(good, "adaptation_manifest.json"), "w", encoding="utf-8") as f:
+            f.write(json.dumps({"target": "gemini", "best_score": 0.9,
+                                "redteam_violations": [], "redteam_gate_pass": True},
+                               ensure_ascii=False))
+        bad = os.path.join(tmp, "broken")
+        os.makedirs(bad)
+        with open(os.path.join(bad, "adaptation_manifest.json"), "w", encoding="utf-8") as f:
+            f.write("{ not json")
+        ms = mc.load_manifests(tmp)
+        self.assertEqual(len(ms), 1)
+
+
+# ===========================================================================
+# 6c. 中心合入判定后的「落盘」（Phase 1 · §6，纯函数 + 默认安全，离线）
+# ===========================================================================
+class TestApplyMerge(unittest.TestCase):
+    def _make_root(self, tmp, target="gemini", redteam_pass=True, delta=0.15):
+        root = os.path.join(tmp, "adaptations")
+        d = os.path.join(root, target)
+        os.makedirs(d, exist_ok=True)
+        body = "---\nname: base\ndescription: x\n---\n# Base\nSystem prompt for %s.\n" % target
+        with open(os.path.join(d, "adapted.SKILL.md"), "w", encoding="utf-8") as f:
+            f.write(body)
+        manifest = {
+            "target": target, "best_score": round(0.70 + delta, 2),
+            "redteam_violations": [] if redteam_pass else ["RT-03"],
+            "redteam_gate_pass": redteam_pass,
+            "adapted_skill_path": "adaptations/%s/adapted.SKILL.md" % target,
+        }
+        with open(os.path.join(d, "adaptation_manifest.json"), "w", encoding="utf-8") as f:
+            f.write(json.dumps(manifest, ensure_ascii=False))
+        review = {"decisions": [{
+            "target": target,
+            "verdict": "merge" if redteam_pass else "revert",
+            "ratchet_delta": delta,
+        }]}
+        with open(os.path.join(root, "merged_review.json"), "w", encoding="utf-8") as f:
+            f.write(json.dumps(review, ensure_ascii=False))
+        return root
+
+    def test_build_variant_contains_body_and_provenance(self):
+        body = "---\nname: base\ndescription: x\n---\n# Base\nSystem prompt for glm.\n"
+        m = {"target": "glm", "best_score": 0.9,
+             "adapted_skill_path": "adaptations/glm/adapted.SKILL.md"}
+        variant = am.build_variant("glm", m, body, 0.2)
+        self.assertIn("prompt-model-adaptation-glm", variant)
+        self.assertIn("System prompt for glm.", variant)   # 适配体主体保留
+        self.assertIn("## Provenance & Integrity", variant)
+        self.assertIn("Safety & Integrity", variant)        # 安全约束继承声明
+        self.assertNotIn("\n---\n---\n", variant)           # 无双重 frontmatter
+
+    def test_collect_applies_filters_revert(self):
+        review = {"decisions": [
+            {"target": "a", "verdict": "merge"},
+            {"target": "b", "verdict": "revert"},
+        ]}
+        self.assertEqual([d["target"] for d in am.collect_applies(review)], ["a"])
+
+    def test_default_writes_draft_only(self):
+        tmp = tempfile.mkdtemp()
+        root = self._make_root(tmp, target="gemini")
+        out = os.path.join(tmp, "_merged")
+        applied = am.apply_merge(os.path.join(root, "merged_review.json"), root, out)
+        self.assertEqual([t for t, _ in applied], ["gemini"])
+        self.assertTrue(os.path.exists(os.path.join(out, "gemini.md")))
+        # 默认：不提升、不碰主 skill（延续「中心只认文件」边界）
+        self.assertFalse(os.path.exists(os.path.join(root, "gemini", "SKILL.md")))
+        self.assertFalse(os.path.exists(os.path.join(root, "..", "SKILL.md")))
+
+    def test_apply_promotes_to_target_dir(self):
+        tmp = tempfile.mkdtemp()
+        root = self._make_root(tmp, target="glm")
+        out = os.path.join(tmp, "_merged")
+        am.apply_merge(os.path.join(root, "merged_review.json"), root, out, do_apply=True)
+        self.assertTrue(os.path.exists(os.path.join(root, "glm", "SKILL.md")))
+
+    def test_demo_runs(self):
+        applied = am._demo()
+        self.assertTrue(applied)  # 至少 1 个 merge 落盘
 
 
 class TestRootCause(unittest.TestCase):
