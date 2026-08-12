@@ -274,8 +274,9 @@ class TestClassifyFailures(unittest.TestCase):
     def test_maps_ftype_and_techniques(self):
         out = rl.classify_failures(self._report())
         by_case = {f["case"]: f for f in out}
-        self.assertEqual(by_case["case_1"]["ftype"], "过长")
-        self.assertEqual(by_case["case_1"]["techniques"], ["限长+截断示例", "预填充锁定"])
+        # case_1 仅 asks_clarifying_question 失败（no_premature_generation 通过）→ 指令模糊
+        self.assertEqual(by_case["case_1"]["ftype"], "指令模糊")
+        self.assertEqual(by_case["case_1"]["techniques"], ["否定→必须式"])
         self.assertEqual(by_case["case_3"]["ftype"], "出戏")
         self.assertEqual(by_case["case_3"]["techniques"],
                          ["XML标签包裹", "预填充锁定", "否定→必须式"])

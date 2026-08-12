@@ -2,6 +2,7 @@
 
 > 本文件是 `prompt-model-adaptation` skill 的纯文本版本，已去除任何平台专用 frontmatter，可直接复制粘贴进任意支持长指令的 AI 工具（Claude / GPT / Cursor / Codex / 通义等）当作 SOP 使用。
 > ⚠️ 所有"预测风险"均为模型家族经验归纳，**非基准测试**，请以真实回归结果为准；未知版本号务必标注不确定性。
+> 📎 **合并来源**：本 SOP 由以下文件合并、去 frontmatter 而成，便于跨工具直贴——① `skill/SKILL.md`（概述/工作流/约束）→ 一~三；② `skill/references/regression-and-techniques.md`（定向改法 + 4 组回归）→ 四、六；③ `skill/references/checklist-template.md`（检查表模板）→ 五；④ `skill/references/model-quirks.md`（模型家族癖好）→ 七。各主题以对应 `references/*.md` 为**唯一权威来源**，本文件为可直贴快照，冲突以 references 为准。
 
 ---
 
@@ -141,6 +142,8 @@
 | 适配人 | ________ |
 
 ## 六、4 组回归用例（必须全过才算适配完成）
+
+> （与 `skill/references/regression-and-techniques.md` 保持一致；该文件为唯一权威来源，改用例请改那里。）
 
 **用例 1 — 稀疏需求**
 - 输入：只给一句模糊需求（如「帮我写个卖课提示词」）。

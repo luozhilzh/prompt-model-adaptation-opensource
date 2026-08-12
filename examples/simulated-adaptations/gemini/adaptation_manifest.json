@@ -7,7 +7,7 @@
   "redteam_violations": [],
   "redteam_gate_pass": true,
   "merge_allowed": true,
-  "adapted_skill_path": "skill\\adaptations_sim\\gemini\\SKILL.md",
-  "loop_dir": "skill\\adaptations_sim\\gemini\\loop",
+  "adapted_skill_path": "examples\\simulated-adaptations\\gemini\\SKILL.md",
+  "loop_dir": "examples\\simulated-adaptations\\gemini\\loop",
   "note": "无 API 时为脚手架：best=基础版（未真实适配）；红队门禁逻辑已跑通。真实适配需配置 OPENAI_API_KEY 后运行。"
 }

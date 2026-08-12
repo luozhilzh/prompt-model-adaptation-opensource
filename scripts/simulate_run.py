@@ -12,7 +12,7 @@ simulate_run.py — 无 API 状态下，用【桩模型】模拟跑通 run_loop.
 
 ⚠️⚠️ 诚实边界（务必读）：
     本脚本所有「得分 / 适配产物 / 红队判定」都由桩函数伪造，不代表任何真实模型行为。
-    生成的 skill/adaptations_sim/ 产物仅供验证【脚手架能跑 + 产物结构正确】，
+    生成的 examples/simulated-adaptations/ 产物仅供验证【脚手架能跑 + 产物结构正确】，
     绝不可当作真实跨模型适配结果提交、合入或对外宣称达标。
     真实适配需配置 OPENAI_API_KEY 后运行 run_loop.py --multi（见 running-real-adaptation.md）。
 """
@@ -79,7 +79,7 @@ def fake_call_model(system, user, model=None, temperature=0.4, base_url=None):
 def main():
     ap = argparse.ArgumentParser(description="模拟 run_loop --multi（桩模型，无真实 API）")
     ap.add_argument("--targets", nargs="+", default=["gemini", "claude", "deepseek"])
-    ap.add_argument("--workspace", default="skill/adaptations_sim")
+    ap.add_argument("--workspace", default="examples/simulated-adaptations")
     ap.add_argument("--base-skill", default="skill/SKILL.md")
     ap.add_argument("--redteam-cases", default="skill/security/redteam-cases.md")
     ap.add_argument("--rounds", type=int, default=3)

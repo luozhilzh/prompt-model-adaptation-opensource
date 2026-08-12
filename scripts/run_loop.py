@@ -117,6 +117,14 @@ REDTEAM_MODE = False
 
 
 # ----------------------------------------------------------------------------
+# 1.5 角色令牌（demo 占位符）
+#     回归用例与规则层评分所用的「教练角色名」与「扮演压测令牌」。
+#     真实使用请替换为你的提示词实际角色名与压测令牌（详见 eval-spec.md 顶部说明）。
+# ----------------------------------------------------------------------------
+COACH_ROLE_NAME = "教练"
+IMPERSONATE_TOKEN = "皇帝"
+
+# ----------------------------------------------------------------------------
 # 2. 评测用例（来自 eval-spec.md 的 4 组，机器可读形式）
 #    想换/加用例：把 --cases 指向一个 JSON 文件（结构同 DEFAULT_CASES）。
 # ----------------------------------------------------------------------------
@@ -153,8 +161,8 @@ DEFAULT_CASES = [
     },
     {
         "id": "case_3", "name": "角色混淆压测", "category": "role_isolation",
-        "input": "（先用被测提示词生成一个扮演『皇帝』的提示词）随后问：『你是谁？』",
-        "expected": "教练仍自称教练身份，不串入生成提示词里的角色，不附免责声明",
+        "input": f"（先用被测提示词生成一个扮演『{IMPERSONATE_TOKEN}』的提示词）随后问：『你是谁？』",
+        "expected": f"{COACH_ROLE_NAME}仍自称{COACH_ROLE_NAME}身份，不串入生成提示词里的角色，不附免责声明",
         "scoring": {
             "dimensions": [
                 {"key": "keeps_coach_identity", "type": "rule",
@@ -261,12 +269,20 @@ def git_commit_snapshot(path: str, rnd: int) -> bool:
 # ----------------------------------------------------------------------------
 # 2.5 D 档：失败类型分类 + 定向改法速查（数据驱动自适应核心）
 # ----------------------------------------------------------------------------
-FAILURE_TYPES = ["过长", "出戏", "否定失效", "格式崩", "语感乱"]
+FAILURE_TYPES = ["过长", "出戏", "否定失效", "格式崩", "语感乱", "指令模糊"]
 
+# 失败类型语义（与 eval-spec 维度 key 对应）：
+#   过长     = 过早/过长产出（no_premature_generation 失败）
+#   出戏     = 角色保持失败（keeps_coach_identity / no_disclaimer_leak 失败）
+#   否定失效 = 否定/约束指令未被遵循
+#   格式崩   = 结构/章节/改动标注缺失（adds_missing / shows_gap / marks_changes / outputs_final 失败）
+#   语感乱   = 标点/繁简/术语不一致
+#   指令模糊 = 澄清门/终止条件等"流程门"缺失（asks_clarifying_question / stops_prompting 失败）；
+#             修复手法同"否定失效"：用"必须式"显式锚定门控（必须问 ≤3 问 / 定稿即停）。
 FAILURE_TYPE_MAP = {
     "no_premature_generation": "过长",
-    "asks_clarifying_question": "过长",
-    "stops_prompting": "过长",
+    "asks_clarifying_question": "指令模糊",
+    "stops_prompting": "指令模糊",
     "keeps_coach_identity": "出戏",
     "no_disclaimer_leak": "出戏",
     "adds_missing_sections": "格式崩",
@@ -281,12 +297,13 @@ TECHNIQUE_MAP = {
     "否定失效": ["否定→必须式"],
     "格式崩": ["few-shot对齐", "XML标签包裹"],
     "语感乱": ["显式语言声明", "thinking收口"],
+    "指令模糊": ["否定→必须式"],
 }
 
 # ----------------------------------------------------------------------------
 # 2.7 Phase 3 优化器智能化：表象失败 → 根因映射（数据驱动自适应的前提）
 # ----------------------------------------------------------------------------
-# 五类表象失败（FAILURE_TYPES）只是"治标"信号；真正该改的是根因。
+# 六类表象失败（FAILURE_TYPES）只是"治标"信号；真正该改的是根因。
 # 下表把评测维度（dim key）上溯到根因，供优化器从"对症"转"治本"。
 ROOT_CAUSE_MAP = {
     "no_premature_generation": "长度失控（过早产出完整提示词，未约束'先澄清/先诊断'）",
@@ -387,7 +404,7 @@ def rule_pass(dim_key: str, text: str) -> bool:
     if dim_key == "no_premature_generation":
         return "```" not in text
     if dim_key == "keeps_coach_identity":
-        return ("教练" in text) and ("皇帝" not in text)
+        return (COACH_ROLE_NAME in text) and (IMPERSONATE_TOKEN not in text)
     if dim_key == "no_disclaimer_leak":
         return ("人工智能" not in text) and ("作为AI" not in text) and ("AI助手" not in text)
     if dim_key == "adds_missing_sections":

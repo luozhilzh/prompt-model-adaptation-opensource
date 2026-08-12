@@ -46,17 +46,19 @@ Copy `references/checklist-template.md` into the user's workspace and fill secti
 
 Run the 4 cases from `references/regression-and-techniques.md` on the real target model. Fill the "实际/actual" column in the checklist. Any drift → return to checklist ④ and add a fix (e.g., XML delimiters, prefilling, stronger thinking-mode containment). Pass when all 4 cases pass and deviation is cleared.
 
-### Step 5 — Self-Optimizing Loop (Tier A)
+### Step 5 — Self-Optimizing Loop (Tier A) — run it
 
-After Steps 1–4 produce an optimized/adapted prompt, optionally run a self-review loop so the prompt improves against the regression suite without manual tweaking each round.
+After Steps 1–4 produce an optimized/adapted prompt, run a self-review loop so the prompt improves against the regression suite without you hand-editing each round. This is **prescribed workflow, not optional** — execute it before shipping.
 
-1. Take the candidate prompt and run the 4 cases from `references/eval-spec.md` (for Tier A, you may self-assess per the spec; for B/C/D, a script calls the real model — see the "Future plan" section in README).
-2. Build an `EVAL_REPORT` = per-case `{expected, actual, pass/fail, failure tags}`.
-3. Feed `{CANDIDATE_PROMPT + EVAL_REPORT}` into the optimizer meta-prompt in `references/optimizer-meta-prompt.md`. It returns `{change log + improved prompt}`.
-4. Use the improved prompt as the new candidate; repeat up to N rounds (suggest ≤5). Keep the highest-scoring version and its change log.
-5. Stop when all 4 cases pass (or rounds exhausted). The result is a prompt verified against the regression suite, ready to ship.
+1. **Load the spec**: open `references/eval-spec.md`; it defines the 4 cases as `{input, expected, scoring dimensions, pass threshold}`.
+2. **Run the 4 cases**: for each case, paste its `input` as a user message to the *candidate prompt* (the candidate acts as the system prompt). Record the actual output.
+3. **Build `EVAL_REPORT`**: for each case fill `{expected, actual, pass/fail, failure tags}`. A case passes when its score ≥ `pass_threshold` (default 1.0 = all dimensions pass).
+4. **Optimize**: feed `{CANDIDATE_PROMPT + EVAL_REPORT}` into the optimizer meta-prompt in `references/optimizer-meta-prompt.md`. It returns `{change log + improved prompt}`.
+5. **Iterate**: set the improved prompt as the new candidate; repeat steps 2–4 up to N rounds (suggest ≤5). Keep the highest-scoring version and its change log.
+6. **Stop**: when all 4 cases pass (or rounds exhausted). The result is a prompt verified against the regression suite, ready to ship with a version number (e.g. `v1.1_modelname`).
 
-> Tiers: **A** = self-review (no API, manual/LLM self-assess). **B** = closed loop (script calls the real model + scorer). **C** = dual-model (separate judge). **D** = adaptive (failure tags auto-drive targeted fixes and backfill the checklist's "actual" column). The repo currently ships the Tier A design; B/C/D need a local script with an API key. See README "Future plan: self-optimization & adaptation (A→D roadmap)".
+> Worked example: `references/demo-a-tier.md` shows one full Tier-A loop on the original "AI Prompt Coach" prompt (0/4 → 4/4).
+> Tiers: **A** = self-review (no API, you/LLM self-assess per eval-spec) · **B** = closed loop (script calls the real model + scorer) · **C** = dual-model (separate judge) · **D** = adaptive (failure tags auto-drive targeted fixes and backfill the checklist "actual" column). B/C/D need a local script with an API key — see README "Future plan (experimental preview): A→D roadmap".
 
 ## Targeted Fix Techniques (cheat sheet)
 

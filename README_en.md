@@ -76,9 +76,24 @@ prompt-model-adaptation-opensource/
 │   ├── apply_merge.py                     #   §6 apply: merge verdict → independent variant (draft by default; --apply/--apply-main promote)
 │   ├── .env.example                       #   API config template
 │   └── README.md                          #   run instructions (incl. Stage-C dual-model section)
-└── assets/                                # documentation diagrams (SVG, GitHub-friendly)
-    ├── style-principle-method.svg         #   prompt optimization lifecycle: style/principle (shared zh/en)
-    └── roadmap-a-to-d.svg                  #   self-optimization roadmap A→D (shared zh/en)
+├── assets/                                # documentation diagrams (SVG, GitHub-friendly)
+│   ├── style-principle-method.svg         #   prompt optimization lifecycle: style/principle (shared zh/en)
+│   └── roadmap-a-to-d.svg                  #   self-optimization roadmap A→D (shared zh/en)
+└── examples/                              # example & scaffold artifacts (see examples/README.md)
+    ├── README.md                          #   this directory's guide (incl. real-example command)
+    ├── simulated-adaptations/             #   simulate_run.py stub-model artifacts (STUB · not real adaptation)
+    │   ├── README.md                      #   stub artifact note (read first)
+    │   ├── gemini/                        #   example model artifact (STUB)
+    │   ├── claude/                        #   example model artifact (STUB)
+    │   ├── deepseek/                      #   example model artifact (STUB)
+    │   └── multi_summary.json             #   multi-target summary (STUB)
+    └── real-adaptation-deepseek/          #   hand-authored real adaptation sample (deepseek · not STUB · not empirical)
+        ├── README.md                      #   template guide + slots + upgrade path
+        ├── base_prompt.md                 #   pre-adaptation baseline (coach prompt)
+        └── deepseek/                      #   target model artifacts
+            ├── adapted_prompt.md          #   real adapted result (hand-authored)
+            ├── model-quirks-observed.md   #   deepseek quirks + directed fixes
+            └── regression_selfcheck.md    #   4-case rule-level self-check
 ```
 
 ---
@@ -87,7 +102,7 @@ prompt-model-adaptation-opensource/
 
 **No API key? See the full pipeline instantly — run the zero-dependency simulation first (strongly recommended as step 0):**
 
-0. **Zero-key trial (no setup at all)**: just run the simulation to verify the whole multi-target orchestration scaffold runs end-to-end, and emits example artifacts watermarked "simulated" under `skill/adaptations_sim/`.
+0. **Zero-key trial (no setup at all)**: just run the simulation to verify the whole multi-target orchestration scaffold runs end-to-end, and emits example artifacts watermarked "simulated" under `examples/simulated-adaptations/`.
    ```bash
    python scripts/simulate_run.py
    ```
@@ -109,6 +124,22 @@ prompt-model-adaptation-opensource/
 > To understand *why* prompts are adapted this way, start with `skill/references/cross-model-adaptation-methodology.md` (5-step flow + family quirks → directed fixes).
 
 ---
+
+## 📌 What's usable now (read this first)
+
+This repo ships in two layers — pick what you need and don't let the "future direction" drown the usable core:
+
+- ✅ **Usable now (no / minimal setup)**
+  - `skill/` — the native WorkBuddy skill, usable in chat;
+  - `SOP.md` / `formats/` — plain-text and Cursor / Claude Code / Codex formats, cross-tool;
+  - `scripts/simulate_run.py` — zero-dependency simulation that verifies the scaffold end-to-end;
+  - Phase 0 **safety guardrails** (spec freeze / ratchet / injection probe / red-team set) ship inside `run_loop.py`;
+  - Phase 1 **cross-model adaptation scaffold** — `--multi` multi-target orchestration + red-team gate + isolated workspaces (real adaptation needs `OPENAI_API_KEY`).
+- 🧪 **Experimental preview (needs API key, or not yet validated on real models)**
+  - B/C/D **true auto-loop** (`run_loop.py` really calls the target model — needs a key);
+  - Phase 2 eval-credibility and Phase 3 optimizer-intelligence **real numbers** (variance / baseline / ablation / Pareto / bounded-adaptive) — only offline templates and scaffolds exist so far, awaiting the key.
+
+> From "Quick Start" down to "Phase 1" below is the **usable core**. "Future plan: A→D roadmap" and "Phase 2/3 scaffolds" are **experimental previews**, marked in their headings — you can skip them.
 
 ## Workflow overview (4 steps)
 
@@ -241,7 +272,9 @@ Codex and most coding agents auto-load the repo-root `AGENTS.md` as agent guidan
 
 ---
 
-## Future plan: self-optimization & adaptation (A→D roadmap)
+## Future plan (experimental preview · needs API key): self-optimization & adaptation (A→D roadmap)
+
+> 🧪 **Experimental preview**: the A→D roadmap below describes **planned future direction and scaffolds**, not the core capability already delivered. The Stage-A design ships with the repo; the true B/C/D auto-loop needs a local API key to actually run, and Phase 2/3 real numbers still await the key. You can skip this — it does not affect using the "usable core" above.
 
 The current skill is **human-driven prompt optimization**: a human reads regression results and edits the prompt by hand. The next step is to upgrade it into **automatic prompt optimization with an evaluation loop** (inspired by DSPy / OPRO / APE). The diagram below is a four-stage evolution from "zero dependency" to "fully adaptive", where each stage is a superset of the previous and **must not be skipped**.
 
@@ -294,7 +327,7 @@ Run it with `scripts/run_loop.py --d-mode` (optionally with `--judge-model` for 
 
 - **How** (four steps):
   1. eval-spec builds an "initial constraint set" per model (sourced from model-quirks)
-  2. the scorer, besides pass/fail, also outputs a **failure-type label**: `too long / role break / negation fails / format breaks / wording off`
+  2. the scorer, besides pass/fail, also outputs a **failure-type label**: `too long / role break / negation fails / format breaks / wording off / instruction vague (gate missing)`
   3. the optimizer reads the failure label and **auto-selects the matching fix** from the "directed-fix cheat sheet" (e.g. detect `too long` → tighten word cap + add truncated example)
   4. after N rounds, freeze that model's `{adapted prompt + actually-effective constraint set}` and auto-fill the checklist's "actual" column
 - **Tested in-WorkBuddy (no API key)**: see `skill/references/tier-tests/d_tier_test_record.md` — the automation chain of failure-type classification → directed fix → checklist auto-fill runs a closed loop, pass rate **2/4 → 3/4 → 4/4** (a clarification-gate over-trigger regression was fixed mid-way); reproduction in `skill/references/tier-tests/d_tier_harness.md`. Candidate sources: `tier_test_candidates/candidate_v1.md`, `candidate_v2_d.md`, `candidate_v3_d.md`.
@@ -316,7 +349,9 @@ Run it with `scripts/run_loop.py --d-mode` (optionally with `--judge-model` for 
 
 ---
 
-## Phase 2 / Phase 3 scaffolds (in place; real validation waits for the key)
+## Phase 2 / Phase 3 scaffolds (experimental preview · real validation waits for the key)
+
+> 🧪 **Experimental preview**: the templates, report formats, and offline tools below are in place (no key needed), but the **real eval numbers and bounded-adaptive runs still await the API key**. They guard "is the ruler accurate / is the optimizer smarter" — enhancements that do not affect the core adaptation flow.
 
 > Route A's Phase 2 (eval credibility) and Phase 3 (optimizer intelligence) were originally "add per audience / deferred".
 > The offline-buildable parts are now landed — templates, report formats, root-cause map, and offline tools are all in place, **no `OPENAI_API_KEY` needed**; real numbers (variance / baseline / ablation / Pareto / bounded-adaptive runs) still wait for the key.
@@ -411,9 +446,9 @@ You can verify the full `--multi` orchestration logic without a real API — `sc
 python scripts/simulate_run.py --targets gemini claude deepseek --rounds 3
 ```
 
-The run emits example artifacts under `skill/adaptations_sim/` (committed with the repo, browsable directly):
+The run emits example artifacts under `examples/simulated-adaptations/` (committed with the repo, browsable directly):
 ```
-├── skill/adaptations_sim/
+├── examples/simulated-adaptations/
 │   ├── gemini/      adaptation_manifest.json · SKILL.md · loop/
 │   ├── claude/      adaptation_manifest.json · SKILL.md · loop/
 │   ├── deepseek/    adaptation_manifest.json · SKILL.md · loop/

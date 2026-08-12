@@ -76,9 +76,24 @@ prompt-model-adaptation-opensource/
 │   ├── apply_merge.py                     #   §6 落盘：merge 判定→生成独立变体（默认草稿，--apply/--apply-main 提升）
 │   ├── .env.example                       #   API 配置模板
 │   └── README.md                          #   运行说明（含 C 档双模型节）
-└── assets/                                # 文档配图（SVG，GitHub 通用渲染）
-    ├── style-principle-method.svg         #   提示词优化生命周期：风格/原理（中英文共用）
-    └── roadmap-a-to-d.svg                  #   自优化演进路线图 A→D（中英文共用）
+├── assets/                                # 文档配图（SVG，GitHub 通用渲染）
+│   ├── style-principle-method.svg         #   提示词优化生命周期：风格/原理（中英文共用）
+│   └── roadmap-a-to-d.svg                  #   自优化演进路线图 A→D（中英文共用）
+└── examples/                              # 示例与脚手架产物（详见 examples/README.md）
+    ├── README.md                          #   本目录说明（含真机示例生成命令）
+    ├── simulated-adaptations/             #   simulate_run.py 桩模型产物（STUB · 非真实适配）
+    │   ├── README.md                      #   桩产物说明（务必先读）
+    │   ├── gemini/                        #   示例模型产物（STUB）
+    │   ├── claude/                        #   示例模型产物（STUB）
+    │   ├── deepseek/                      #   示例模型产物（STUB）
+    │   └── multi_summary.json             #   多目标汇总（STUB）
+    └── real-adaptation-deepseek/          #   手写实适配样例（deepseek · 非 STUB · 非实证）
+        ├── README.md                      #   模板说明 + 插槽 + 升级路径
+        ├── base_prompt.md                 #   适配前基线（教练提示词）
+        └── deepseek/                      #   目标模型产物
+            ├── adapted_prompt.md          #   真实适配后（手写实内容）
+            ├── model-quirks-observed.md   #   deepseek 专属癖好 + 定向改法
+            └── regression_selfcheck.md    #   4 案例规则级自检
 ```
 
 ---
@@ -87,7 +102,7 @@ prompt-model-adaptation-opensource/
 
 **不想配 API key 也能立刻看到全流程？先跑零依赖模拟（强烈推荐第一步）：**
 
-0. **零 key 试跑（无需任何配置）**：直接跑模拟，验证整套多目标编排脚手架端到端跑通，并在 `skill/adaptations_sim/` 生成带「模拟」水印的示例产物。
+0. **零 key 试跑（无需任何配置）**：直接跑模拟，验证整套多目标编排脚手架端到端跑通，并在 `examples/simulated-adaptations/` 生成带「模拟」水印的示例产物。
    ```bash
    python scripts/simulate_run.py
    ```
@@ -109,6 +124,22 @@ prompt-model-adaptation-opensource/
 > 想搞懂"为什么这样适配"，先看 `skill/references/cross-model-adaptation-methodology.md`（五步法 + 家族癖好→定向改法）。
 
 ---
+
+## 📌 当前可用范围（先看清能立刻用什么）
+
+本仓库内容分两层，请按需取用，避免被"未来方向"淹没：
+
+- ✅ **现在就能用（无需 / 少量配置）**
+  - `skill/`：WorkBuddy 原生 skill，对话即用；
+  - `SOP.md` / `formats/`：纯文本与 Cursor / Claude Code / Codex 格式，跨工具通用；
+  - `scripts/simulate_run.py`：零依赖模拟，端到端验证脚手架；
+  - Phase 0 **安全护栏**（规约冻结 / 棘轮 / 反注入 / 红队集）已随 `run_loop.py` 落地；
+  - Phase 1 **跨模型适配脚手架**：`--multi` 多目标编排 + 红队门禁 + 隔离工作区（真实适配需配 `OPENAI_API_KEY`）。
+- 🧪 **实验性预览（需 API key，或尚未真机验证）**
+  - B/C/D 档**真·自动闭环**（`run_loop.py` 真实调用目标模型，需 key）；
+  - Phase 2 评测可信度、Phase 3 优化器智能化的**真实数字**（方差 / baseline / ablation / Pareto / 有界自适应），目前仅有离线模板与脚手架，等 key 后补。
+
+> 下方「快速开始」到「Phase 1」为**立即可用核心**；「后续计划 A→D 路线图」「Phase 2/3 脚手架」为**实验性预览**，已用标题标注，可先跳过。
 
 ## 工作流概览（4 步）
 
@@ -230,18 +261,20 @@ Codex 与多数 coding agent 会自动加载仓库根目录的 `AGENTS.md` 作�
 
 ## 4 组回归用例（适配是否完成的判定）
 
-| 用例 | 输入 | 预期 |
-|---|---|---|
-| 1 稀疏需求 | 一句模糊需求（如「帮我写个卖课提示词」） | 触发澄清，先问 ≤3 问，不直接生成 |
-| 2 B 类初版 | 一段缺「约束/示例」的初版提示词 | 先诊断缺口，再给优化版并标注改动点 |
-| 3 角色混淆压测 | 生成提示词扮演角色后问「你是谁」 | 教练仍自称原身份，不串角色 |
-| 4 定稿终止 | 连改 3 轮后说「定稿」 | 输出最终版并提示可复制，不再追问 |
+> 完整定义、观察点与评分要点见 `skill/references/regression-and-techniques.md`（**唯一权威来源**）。摘要如下：
+
+1. **稀疏需求** — 一句模糊需求 → 触发澄清门，先问 ≤3 问，不直接生成；
+2. **B 类初版** — 缺约束/示例的初版 → 先诊断缺口，再给优化版并标注改动点；
+3. **角色混淆压测** — 生成提示词扮演角色后问「你是谁」→ 教练仍自称原身份，不串角色、不附免责；
+4. **定稿终止** — 连改 3 轮后说「定稿」→ 输出最终版并提示可复制，不再追问。
 
 4/4 通过 + 偏差清零 = 适配完成，写版本号归档（建议 `v1.1_模型名`），**不覆盖原版**。
 
 ---
 
-## 后续计划：自优化与自适应（A→D 路线图）
+## 后续计划（实验性预览 · 需 API key）：自优化与自适应（A→D 路线图）
+
+> 🧪 **实验性预览**：以下 A→D 路线图描述的是**未来方向的规划与脚手架**，并非当前已交付的核心能力。A 档设计已随仓库发布；B/C/D 的真·自动闭环需本地 API key 才能实跑，Phase 2/3 的真实数字仍等 key 后补。可先跳过，不影响前面「立即可用核心」的使用。
 
 当前 skill 是**人驱动的提示词优化**：人看回归结果、手动改提示词。下一步可升级为**带评估闭环的自动提示优化**（灵感来自 DSPy / OPRO / APE）。下图是从「零依赖」到「完全自适应」的四阶演进路线，每阶都是上一阶的超集，**不可跳阶**。
 
@@ -291,7 +324,7 @@ Codex 与多数 coding agent 会自动加载仓库根目录的 `AGENTS.md` 作�
 - **核心思想**：把静态的 `model-quirks.md`（「DeepSeek 偏长」等）变成**可写入、可调整的约束参数**，由实测漂移自动修改。
 - **做法**（四步）：
   1. eval-spec 给每个模型建一份「初始约束集」（来源即 model-quirks）
-  2. 评分器除打通过/失败，还输出**失败类型标签**：`过长 / 出戏 / 否定失效 / 格式崩 / 语感乱`
+  2. 评分器除打通过/失败，还输出**失败类型标签**：`过长 / 出戏 / 否定失效 / 格式崩 / 语感乱 / 指令模糊`
   3. 优化器读失败标签，从「定向改法速查」里**自动选对应手法加强**（如检测到`过长` → 收紧字数上限 + 截断示例）
   4. 循环 N 轮后，固化该模型的 `{适配版提示词 + 实际生效约束集}` 并自动填实检查表的「实际」列
 - **已在 WorkBuddy 内实测（无需 API key）**：见 `references/tier-tests/d_tier_test_record.md`——用**失败类型分类 → 定向改法 → 检查表自填**这条自动化链跑通闭环，通过率 **2/4 → 3/4 -> 4/4**（中途修掉澄清门过触发回归）；复现见 `references/tier-tests/d_tier_harness.md`。候选原文在 `tier_test_candidates/candidate_v1.md`、`candidate_v2_d.md`、`candidate_v3_d.md`。
@@ -313,7 +346,9 @@ Codex 与多数 coding agent 会自动加载仓库根目录的 `AGENTS.md` 作�
 
 ---
 
-## Phase 2 / Phase 3 脚手架（已就位，真机验证等 key）
+## Phase 2 / Phase 3 脚手架（实验性预览 · 真机验证等 key）
+
+> 🧪 **实验性预览**：以下模板、报告格式与离线工具已就位（无需 key），但**真实评测数字与有界自适应实跑仍等 API key**。它们守的是"尺子准不准 / 优化器聪不聪明"，属增强项，不影响核心适配流程。
 
 > 路线 A 的 Phase 2（评测可信度）与 Phase 3（优化器智能化）原定"视听众补 / 暂缓"。
 > 现**先把离线可搭的部分落地**——模板、报告格式、根因映射、离线工具都已就位，**无需 `OPENAI_API_KEY`**；真机数字（方差 / baseline / ablation / Pareto / 有界自适应实跑）仍等 key 后补。
@@ -408,9 +443,9 @@ python scripts/run_loop.py --multi \
 python scripts/simulate_run.py --targets gemini claude deepseek --rounds 3
 ```
 
-跑完在 `skill/adaptations_sim/` 生成示例产物（已随仓库提交，可直接浏览）：
+跑完在 `examples/simulated-adaptations/` 生成示例产物（已随仓库提交，可直接浏览）：
 ```
-├── skill/adaptations_sim/
+├── examples/simulated-adaptations/
 │   ├── gemini/      adaptation_manifest.json · SKILL.md · loop/
 │   ├── claude/      adaptation_manifest.json · SKILL.md · loop/
 │   ├── deepseek/    adaptation_manifest.json · SKILL.md · loop/
@@ -418,7 +453,7 @@ python scripts/simulate_run.py --targets gemini claude deepseek --rounds 3
 ```
 每个 `adaptation_manifest.json` 都带 `note: "无 API 时为脚手架…"` 与「模拟·非真适配」水印；红队门禁 / 棘轮 / 隔离工作区均为**真实逻辑跑通**。
 
-> 诚实边界：模拟产物均为**桩模型伪造**，仅证明脚手架与产物结构正确，**不代表任何真实模型的适配质量**；真实适配仍需配 `OPENAI_API_KEY` 跑 `run_loop.py --multi`（见上方 Quick Start 第 3 项）。
+> 诚实边界：模拟产物均为**桩模型伪造**，仅证明脚手架与产物结构正确，**不代表任何真实模型的适配质量**；真实适配仍需配 `OPENAI_API_KEY` 跑 `run_loop.py --multi`（见上方 Quick Start 第 3 项）。正式浏览前请先读 `examples/simulated-adaptations/README.md`（STUB 标注）。
 
 ## 许可与贡献
 

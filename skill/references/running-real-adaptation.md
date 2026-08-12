@@ -263,8 +263,8 @@ git commit -m "feat: 真机 --multi 跑通并回灌校准三家族范例与 mode
 
 ### 模拟产物处理
 
-- `skill/adaptations_sim/` 保留作「无 API 快速验证」对照；本手册 §0 已注明其为模拟非真适配。
-- 可选：将真机 `SKILL.md` 复制覆盖 `adaptations_sim/<target>/`（去「模拟」水印）作 golden 样本，便于无 key 时对照。
+- `examples/simulated-adaptations/` 保留作「无 API 快速验证」对照；本手册 §0 已注明其为模拟非真适配（详见 `examples/simulated-adaptations/README.md` 的 STUB 标注）。
+- 可选：将真机 `SKILL.md` 复制覆盖 `examples/simulated-adaptations/<target>/`（去「模拟」水印）作 golden 样本，便于无 key 时对照。
 
 ---
 

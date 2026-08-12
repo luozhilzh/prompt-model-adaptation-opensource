@@ -107,7 +107,7 @@ python scripts/run_loop.py --candidate tier_test_candidates/candidate_v1.md \
 
 ## 8. D 档（自适应 · 失败类型驱动定向改法 + 检查表自填）
 
-D 档 = C 档（独立裁判）之上加一层**自动化适配链**：把评测里的失败维度自动归类为 5 类失败类型，按速查表给优化器推荐定向改法，跑完把检查表"实际"列自动填实。
+D 档 = C 档（独立裁判）之上加一层**自动化适配链**：把评测里的失败维度自动归类为 6 类失败类型，按速查表给优化器推荐定向改法，跑完把检查表"实际"列自动填实。
 
 ### 怎么开 D 档
 
@@ -125,7 +125,7 @@ python scripts/run_loop.py --candidate tier_test_candidates/candidate_v1.md \
 
 | 步骤 | 行为 | 来源 |
 |---|---|---|
-| 失败类型分类 | 把每条失败维度映射到 `过长 / 出戏 / 否定失效 / 格式崩 / 语感乱` | 脚本内 `FAILURE_TYPE_MAP`（对应 `eval-spec` 维度 key） |
+| 失败类型分类 | 把每条失败维度映射到 `过长 / 出戏 / 否定失效 / 格式崩 / 语感乱 / 指令模糊` | 脚本内 `FAILURE_TYPE_MAP`（对应 `eval-spec` 维度 key） |
 | 定向改法推荐 | 按类型查 `regression-and-techniques.md` 速查表，给出 1–2 个手法（如 `过长` → 限长+截断示例） | 脚本内 `TECHNIQUE_MAP` |
 | 优化器增强 | 把"失败类型诊断 + 定向改法建议"拼进优化器 prompt（用 `_OPTIMIZER_SYSTEM_D`），要求优先用推荐药方 | 见文件顶部说明 |
 | 检查表自填 | 达标轮后自动生成 `checklist_auto.md`，按 `checklist-template.md` 结构填实「实际」列与「结果」勾选 | `generate_checklist()` |

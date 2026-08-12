@@ -1,13 +1,13 @@
 {
-  "target": "claude",
-  "target_dir": "claude",
+  "target": "deepseek",
+  "target_dir": "deepseek",
   "base_url_resolved": "https://api.openai.com/v1",
   "best_round": 1,
   "best_score": 1.0,
   "redteam_violations": [],
   "redteam_gate_pass": true,
   "merge_allowed": true,
-  "adapted_skill_path": "skill\\adaptations_sim\\claude\\SKILL.md",
-  "loop_dir": "skill\\adaptations_sim\\claude\\loop",
+  "adapted_skill_path": "examples\\simulated-adaptations\\deepseek\\SKILL.md",
+  "loop_dir": "examples\\simulated-adaptations\\deepseek\\loop",
   "note": "无 API 时为脚手架：best=基础版（未真实适配）；红队门禁逻辑已跑通。真实适配需配置 OPENAI_API_KEY 后运行。"
 }

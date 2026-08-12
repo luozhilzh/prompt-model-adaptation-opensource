@@ -37,3 +37,6 @@ jobs:
 
       - name: Run §6 apply-merge draft (no API)
         run: python scripts/apply_merge.py --demo
+
+      - name: Run zero-dependency simulation (scaffold smoke test, no API)
+        run: python scripts/simulate_run.py --targets gemini claude deepseek --rounds 1
