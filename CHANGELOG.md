@@ -33,6 +33,18 @@
 - `scripts/test_harness.py`（run_loop 核心逻辑单测，含 `TestMergeCandidates` + `TestApplyMerge`）。
 - CI：回归 + 反漂移门禁 + harness + 四个离线脚手架工具（`--demo`）全绿。
 
+### 质量改进 P1–P9 + DeepSeek 手写实适配样例（2026-08-13）
+- **P1–P9 质量改进**（README 可用核心前置 / 失败类型修正 / 角色令牌参数化 / 回归 SSOT / 样例迁移 / Step5 可操作化）：
+  - P1：双语文档顶部加「📌 当前可用范围」框，A→D 路线图 / Phase 2-3 脚手架统一标「实验性预览 · 需 key」。
+  - P2：修复 `run_loop.py` FAILURE_TYPE_MAP D 类 bug，新增第 6 类「指令模糊」（`asks_clarifying_question`/`stops_prompting` 不再错归「过长」），同步 4 个引用文档。
+  - P3：角色令牌参数化为 `COACH_ROLE_NAME`/`IMPERSONATE_TOKEN` 常量；`eval-spec.md` 加占位符替换警示。
+  - P4/P5：回归用例收敛到 `regression-and-techniques.md` 单一权威源（SSOT）；SOP 合并来源澄清。
+  - P6：CI 增 `simulate_run.py` 零依赖冒烟；`examples/` 预留真实样例命令。
+  - P7：`skill/adaptations_sim/` 整体迁移为 `examples/simulated-adaptations/`（STUB 标注），README 树/内联引用/运行手册/脚本默认路径全同步。
+  - P8/P9：英文 README 同步 P1/P2/P7；SKILL Step 5 由「可选」改「必跑」并给 6 步具体动作。
+- **DeepSeek 手写实适配样例模板**（路线 B）：新增 `examples/real-adaptation-deepseek/`，含模板说明 + 插槽 + 升级路径、适配前基线 `base_prompt.md`、真实适配后 `deepseek/adapted_prompt.md`、DeepSeek 癖好与定向改法 `model-quirks-observed.md`、4 组回归用例指令层自检 `regression_selfcheck.md`。诚实边界：**手写实内容 + 指令层结构验证，非 STUB、非实证跑分**（无 `best_score` / 红队 `violations`）；实证升级路径见样例 README（需 `OPENAI_API_KEY` 后 `run_loop.py --multi`）。
+- **验证**：`scripts/test_harness.py` 65/65 OK；`scripts/test_phase0.py` 21/21 OK（含 Phase1AntiDriftTest 目录树/链接门禁）；全文无残留 `skill/adaptations_sim` 引用。
+
 ## 诚实边界（贯穿全仓）
 - 本地 `--multi` 为**顺序编排**；真正并发由 WorkBuddy 子 Agent 扇出实现（§6）。
 - 无真实 API 时，所有产物为**脚手架 / 桩模型伪造**，仅证明结构与逻辑正确，不代表任何真实模型的适配质量。
