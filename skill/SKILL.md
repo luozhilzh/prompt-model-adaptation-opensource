@@ -1,9 +1,12 @@
 ---
 name: prompt-model-adaptation
 description: This skill should be used when a user wants to optimize or refine an AI system prompt, adapt an existing prompt to a specific target model (e.g., DeepSeek, GLM, Qwen, Hunyuan), generate a model-adaptation checklist, or validate a prompt with regression tests. It provides a reusable workflow: diagnose & optimize the prompt → produce a fillable adaptation checklist → adapt to a target model by filling the checklist and applying targeted fixes → validate with 4 regression cases.
+version: 1.0.1
 ---
 
 # Prompt Model Adaptation
+
+> **跨工具兼容**：本 Skill 基于标准 agent-skills 格式（`SKILL.md` + `references/`），不依赖任何特定客户端。可原样用于 WorkBuddy、Claude Code、Cursor、Codex 及任意支持「Skill / 长指令 / 系统提示词」的 agent。各工具加载方式见仓库根 `formats/`（Cursor `.mdc` / Claude Code 命令 / Codex `AGENTS.md`）与 `README.md`「用法三 / 四 / 五」。
 
 ## Overview
 
@@ -15,6 +18,8 @@ A reusable workflow for turning a vague or unstable prompt into a clear, stable 
 - User asks to "适配成 XX 模型" (adapt a prompt to a specific model).
 - User asks for a "模型适配检查表" (model adaptation checklist) or a way to QA prompt portability.
 - User wants to validate a prompt's stability across models.
+
+> **触发边界**：本 skill 仅在你指向「**跨模型适配**」（把提示词搬到 DeepSeek / GLM / Qwen / Hunyuan 等目标模型）或「**系统提示优化 + 4-case 回归验证**」时触发；纯文案润色、通用写作优化、与具体模型家族无关的泛化提示词改写不在范围内。
 
 ## Workflow
 
