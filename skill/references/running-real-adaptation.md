@@ -26,11 +26,17 @@ pip install -r requirements.txt
 
 ## 2. 配置 .env
 
-仓库提供 `.env.example`，复制为 `.env` 并填入：
+在包根或 `scripts/` 创建 `.env`（不要提交），填入：
 
 ```bash
-cp .env.example .env
+# .env
+OPENAI_API_KEY=你的密钥
+BASE_URL=https://api.deepseek.com
+MODEL=deepseek-chat
+JUDGE_MODEL=            # 可选（C 档独立裁判）
 ```
+
+> 各服务商 OpenAI 兼容地址示例见 GitHub 仓库的 `.env.example` 注释。
 
 | 字段 | 作用 | 说明 |
 |---|---|---|

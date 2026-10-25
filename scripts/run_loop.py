@@ -76,6 +76,17 @@ except ImportError:
 
 
 # ----------------------------------------------------------------------------
+# 0. 路径解析（仓库布局 skill/… 与扁平发布包布局 …/ 双兼容）
+# ----------------------------------------------------------------------------
+def _pick_path(*candidates: str) -> str:
+    """按顺序返回第一个存在的路径；均不存在时返回首个候选（保持原默认语义）。"""
+    for c in candidates:
+        if Path(c).exists():
+            return c
+    return candidates[0]
+
+
+# ----------------------------------------------------------------------------
 # 1. 配置
 # ----------------------------------------------------------------------------
 load_dotenv()  # 读取 .env
@@ -781,10 +792,10 @@ def main():
                     help="多目标适配模式：对每个 --targets 在隔离工作区跑闭环 + 红队门禁，产出 manifest")
     ap.add_argument("--targets", nargs="+", default=None,
                     help="--multi 时的目标模型列表（如 gemini claude deepseek），各自隔离工作区")
-    ap.add_argument("--workspace", default="skill/adaptations",
-                    help="--multi 时适配工作区根目录（默认 skill/adaptations）")
-    ap.add_argument("--base-skill", default="skill/SKILL.md",
-                    help="--multi 时基础 skill 路径（默认 skill/SKILL.md）")
+    ap.add_argument("--workspace", default=_pick_path("skill/adaptations", "adaptations"),
+                    help="--multi 时适配工作区根目录（默认 skill/adaptations；扁平包布局回退 adaptations）")
+    ap.add_argument("--base-skill", default=_pick_path("skill/SKILL.md", "SKILL.md"),
+                    help="--multi 时基础 skill 路径（默认 skill/SKILL.md；扁平包布局回退 SKILL.md）")
     ap.add_argument("--redteam-cases", default=None,
                     help="--multi 时红队集路径（默认不跑红队门禁；填了即强制门禁）")
     args = ap.parse_args()

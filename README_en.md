@@ -6,6 +6,8 @@ Core idea: **replace "subjective feeling words" with "verifiable actions and sta
 
 > ⚠️ Disclaimer: all "model family quirks / predicted risks" in this repo are **experience-based generalizations, NOT benchmark results**. Treat any specific-version claims as tentative until confirmed by your own regression runs on the real model. Unknown version numbers (e.g. GLM5.2 / Qwen3.7 / hy3) MUST be flagged as uncertain.
 
+> 📦 **SkillHub (skillhub.cn) listing**: slug `prompt-model-adaptation`, display name "提示词跨模型适配". Install: `skillhub install prompt-model-adaptation --dir <your skills dir>`.
+
 ---
 
 ## Directory structure
@@ -70,11 +72,14 @@ prompt-model-adaptation-opensource/
 ├── scripts/                               # B/C/D external-API loop scaffold (run locally, needs key); Phase 0 guardrails built-in
 │   ├── run_loop.py                        #   main loop: execute → score → optimize (B/C/D tiers; --redteam runs safety regression; --multi runs multi-target adaptation)
 │   ├── test_phase0.py                     #   offline self-test for safety guardrails (mock model, no key needed)
+│   ├── test_harness.py                    #   unit tests for run_loop core logic (incl. merge/apply chain, no key needed)
+│   ├── simulate_run.py                    #   zero-dependency simulation (no key; verifies multi-target orchestration end-to-end)
 │   ├── eval_credibility.py                #   Phase 2 eval credibility: variance/stability roll-up over K judge reports (offline)
 │   ├── root_cause.py                      #   Phase 3 root-cause diagnosis: eval report → root cause (offline, calls run_loop)
 │   ├── merge_candidates.py                #   §6 center merge review: read manifests → red-team + ratchet → merge/revert (offline)
 │   ├── apply_merge.py                     #   §6 apply: merge verdict → independent variant (draft by default; --apply/--apply-main promote)
 │   ├── .env.example                       #   API config template
+│   ├── 交付说明.md                         #   Stage-B scaffold delivery note (design / in-session comparison / how to run)
 │   └── README.md                          #   run instructions (incl. Stage-C dual-model section)
 ├── assets/                                # documentation diagrams (SVG, GitHub-friendly)
 │   ├── style-principle-method.svg         #   prompt optimization lifecycle: style/principle (shared zh/en)

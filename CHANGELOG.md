@@ -3,6 +3,15 @@
 > 路线 A · 负责任跨模型提示词适配方法论。本仓库所有离线脚手架（无需 `OPENAI_API_KEY`）均已落地并通过 CI；
 > 凡标注「**等 key**」的，均指真机数字 / 真实跨模型跑分需在配置 `OPENAI_API_KEY` 后由 `run_loop.py --multi` 产出。
 
+## v1.0.2 — skillhub.cn 上架准备（2026-10-25，PATCH，向后兼容）
+
+- `skill/SKILL.md` frontmatter 补齐 skillhub.cn 发布必填字段：`slug`（`prompt-model-adaptation`，经平台 API 实测未被占用）、`displayName`（提示词跨模型适配）、`summary`、`license: MIT`；`version` 1.0.1 → 1.0.2。
+- `description` 由单行改为多行块标量（规避部分 YAML 解析器拒读单行长描述的问题），并中英双语化：中文触发词优先，适配中文社区发现场景。
+- 修正 SKILL.md 内路径引用：`skill/security/redteam-cases.md` → `security/redteam-cases.md`；跨工具 callout 由「仓库根 formats/ 与 README.md」改为「包内 `formats/` + GitHub 仓库链接」——同时修复 WorkBuddy 用户级部署态下的断链。
+- 新增发布包组装规范：仓库公开文件 → 扁平化 staging 包（`skill/` 内容铺至包根 + `scripts/` + `tier_test_candidates/` + `examples/` + `formats/` + `LICENSE` + `CHANGELOG.md` + `requirements.txt`），包内 `.md` 同步做 `skill/` 前缀路径变换；排除 `__pycache__` / `.env.example` / `.gitkeep` / 交付说明等构建残留与仓库级文档。
+- 脚本默认路径布局自适应：`run_loop.py` / `simulate_run.py` 的 `--base-skill` / `--workspace` / `--redteam-cases` 默认值改为「仓库布局 `skill/…` 优先、扁平发布包布局回退」；不改任何业务逻辑，仓库内行为与原先一致。
+- 无工作流逻辑变更；`references` 正文零改动。
+
 ## 里程碑
 
 ### Phase 0 — 安全底座（已落地）

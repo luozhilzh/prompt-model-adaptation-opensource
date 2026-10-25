@@ -14,13 +14,16 @@ pip install openai python-dotenv
 
 ## 2. 配置
 
+在 `scripts/` 或包根创建 `.env`（不要提交），填入：
+
 ```bash
-cp .env.example .env
-# 编辑 .env，填入 OPENAI_API_KEY / BASE_URL / MODEL
-# JUDGE_MODEL 可选（C 档独立裁判）
+OPENAI_API_KEY=你的密钥
+BASE_URL=https://api.deepseek.com
+MODEL=deepseek-chat
+JUDGE_MODEL=            # 可选（C 档独立裁判），留空 = 同 MODEL 自评
 ```
 
-`BASE_URL` 与 `MODEL` 按你的服务商填（DeepSeek / GLM / Qwen / 混元 等 OpenAI 兼容地址见 `.env.example` 注释）。
+`BASE_URL` 与 `MODEL` 按你的服务商填；各服务商 OpenAI 兼容地址示例见 GitHub 仓库的 `.env.example` 注释。
 
 ## 3. 运行
 

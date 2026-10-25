@@ -6,6 +6,8 @@
 
 > ⚠️ 免责声明：本仓库中所有「模型家族癖好 / 预测风险」均为**经验性归纳，非基准测试**。具体版本请以你在真实模型上跑回归的「实际」结果为准；未知版本号（如 GLM5.2 / Qwen3.7 / hy3）务必标注不确定性。
 
+> 📦 **SkillHub（skillhub.cn）上架信息**：slug `prompt-model-adaptation`，展示名「提示词跨模型适配」。安装：`skillhub install prompt-model-adaptation --dir <你的 skills 目录>`。
+
 ---
 
 ## 目录结构
@@ -70,11 +72,14 @@ prompt-model-adaptation-opensource/
 ├── scripts/                               # B/C/D 档外部 API 闭环脚手架（本地跑，需 key）；Phase 0 护栏内置
 │   ├── run_loop.py                        #   主循环：执行 → 评分 → 优化（B/C/D 档；--redteam 跑安全回归；--multi 多目标适配）
 │   ├── test_phase0.py                     #   安全护栏离线自检（mock 模型，无需 key）
+│   ├── test_harness.py                    #   run_loop 核心逻辑单测（含合入/落盘链路，无需 key）
+│   ├── simulate_run.py                    #   零依赖模拟试跑（无需 key，验证多目标编排脚手架端到端）
 │   ├── eval_credibility.py                #   Phase 2 评测可信度：K 份裁判报告方差/稳定性汇总（离线）
 │   ├── root_cause.py                      #   Phase 3 根因诊断：评测报告 → 根因映射（离线，调 run_loop）
 │   ├── merge_candidates.py                #   §6 中心合入评审：读各 manifest→红队+棘轮判 merge/revert（离线）
 │   ├── apply_merge.py                     #   §6 落盘：merge 判定→生成独立变体（默认草稿，--apply/--apply-main 提升）
 │   ├── .env.example                       #   API 配置模板
+│   ├── 交付说明.md                         #   B 档脚手架交付说明（设计要点 / 内测对照 / 运行方式）
 │   └── README.md                          #   运行说明（含 C 档双模型节）
 ├── assets/                                # 文档配图（SVG，GitHub 通用渲染）
 │   ├── style-principle-method.svg         #   提示词优化生命周期：风格/原理（中英文共用）

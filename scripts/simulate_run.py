@@ -80,8 +80,9 @@ def main():
     ap = argparse.ArgumentParser(description="模拟 run_loop --multi（桩模型，无真实 API）")
     ap.add_argument("--targets", nargs="+", default=["gemini", "claude", "deepseek"])
     ap.add_argument("--workspace", default="examples/simulated-adaptations")
-    ap.add_argument("--base-skill", default="skill/SKILL.md")
-    ap.add_argument("--redteam-cases", default="skill/security/redteam-cases.md")
+    ap.add_argument("--base-skill", default=R._pick_path("skill/SKILL.md", "SKILL.md"))
+    ap.add_argument("--redteam-cases",
+                    default=R._pick_path("skill/security/redteam-cases.md", "security/redteam-cases.md"))
     ap.add_argument("--rounds", type=int, default=3)
     args = ap.parse_args()
 
